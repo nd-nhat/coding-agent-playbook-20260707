@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>スライド一覧 | Coding Agent Playbook</title>
+  <style>
+    :root {
+      --font: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", "Meiryo", sans-serif;
+      --accent: #1f6feb;
+      --ink: #0d2b4e;
+      --subtle: #5a6b7b;
+    }
+    * { box-sizing: border-box; }
+    body { font-family: var(--font); color: var(--ink); margin: 0; padding: 8vh 6vw; max-width: 820px; }
+    h1 { margin: 0 0 .2em; }
+    .lead { color: var(--subtle); margin: 0 0 2em; }
+    ol { list-style: none; padding: 0; margin: 0; }
+    li { margin: 0 0 .75em; }
+    a.deck {
+      display: flex; align-items: baseline; gap: .75em;
+      text-decoration: none; color: var(--ink);
+      border: 1px solid #d7dee6; border-radius: 8px; padding: .9em 1.1em;
+    }
+    a.deck:hover { border-color: var(--accent); background: #f4f8ff; }
+    .num { color: var(--accent); font-weight: 700; font-variant-numeric: tabular-nums; }
+    .title { font-weight: 600; }
+    footer { margin-top: 3em; color: var(--subtle); font-size: .85em; }
+    footer a { color: var(--accent); }
+  </style>
+</head>
+<body>
+  <h1>Coding Agent Playbook — 講義スライド</h1>
+  <p class="lead">導入（00）と環境構築（01）のあと、壁打ち → 設計 → 実装 → 仕上げ（並列 issue 処理）→ 運用保守・バグ修正 の 5 フェーズ（02–06）。</p>
+  <ol>
+    <li><a class="deck" href="00-intro.html"><span class="num">00</span><span class="title">体験できること</span></a></li>
+    <li><a class="deck" href="01-setup.html"><span class="num">01</span><span class="title">環境構築</span></a></li>
+    <li><a class="deck" href="02-brainstorm.html"><span class="num">02</span><span class="title">壁打ち</span></a></li>
+    <li><a class="deck" href="03-design.html"><span class="num">03</span><span class="title">設計</span></a></li>
+    <li><a class="deck" href="04-implement.html"><span class="num">04</span><span class="title">実装</span></a></li>
+    <li><a class="deck" href="05-parallel.html"><span class="num">05</span><span class="title">仕上げ（並列 issue 処理）</span></a></li>
+    <li><a class="deck" href="06-operate.html"><span class="num">06</span><span class="title">運用保守・バグ修正</span></a></li>
+    <li><a class="deck" href="90-appendix-skills.html"><span class="num">A</span><span class="title">Appendix: Skill リファレンス</span></a></li>
+  </ol>
+  <footer>
+    リポジトリ: <a href="https://github.com/kanka-jp/coding-agent-playbook">kanka-jp/coding-agent-playbook</a>
+  </footer>
+</body>
+</html>

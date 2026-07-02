@@ -1,0 +1,7 @@
+node_modules/
+cdk.out/
+# CDK の TypeScript output (bin/, lib/ 配下の .js/.d.ts)。agent/src/server.mjs は .mjs なので影響なし。
+infra/bin/*.js
+infra/bin/*.d.ts
+infra/lib/*.js
+infra/lib/*.d.ts

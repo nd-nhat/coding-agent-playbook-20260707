@@ -1,0 +1,28 @@
+# branch ごとの app スタック（web / api）。STACK=<repo>-<branch> を渡して起動する。
+# URL は <service>.<STACK>.localhost（例: web.coding-agent-playbook-stage-02.localhost）。
+# 別 branch は STACK を変えて起動すれば URL 名前空間が分かれ、並列でも衝突しない。
+# router/service 名にも STACK を含めるので、複数 branch を同時起動しても Traefik 上で一意になる。
+services:
+  web:
+    image: traefik/whoami
+    hostname: web
+    networks: [traefik-public]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.${STACK:?set STACK=<repo>-<branch>}-web.rule=Host(`web.${STACK}.localhost`)"
+      - "traefik.http.services.${STACK}-web.loadbalancer.server.port=80"
+
+  api:
+    image: traefik/whoami
+    hostname: api
+    networks: [traefik-public]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.${STACK}-api.rule=Host(`api.${STACK}.localhost`)"
+      - "traefik.http.services.${STACK}-api.loadbalancer.server.port=80"
+
+# 共有ネットワーク traefik-public に external で繋ぐ（shared traefik と同じネットワーク）。
+networks:
+  traefik-public:
+    external: true
+    name: traefik-public

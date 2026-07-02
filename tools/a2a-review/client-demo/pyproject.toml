@@ -1,0 +1,16 @@
+[project]
+name = "client-demo"
+version = "0.1.0"
+description = "A2A client demo for codex-a2a-server (Stage 1 PoC)"
+requires-python = ">=3.10"
+dependencies = [
+  "a2a-sdk~=1.1",
+  "httpx>=0.28.1",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["client"]

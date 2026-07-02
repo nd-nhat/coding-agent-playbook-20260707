@@ -1,0 +1,21 @@
+{
+  "name": "sre-bedrock-fixer-pipeline-infra",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CDK (A 最小 e2e): S3 triage -> EventBridge -> CodeBuild fixer -> PR。pipeline/README.md 参照",
+  "bin": { "app": "bin/app.js" },
+  "scripts": {
+    "build": "tsc",
+    "synth": "cdk synth",
+    "deploy": "cdk deploy"
+  },
+  "devDependencies": {
+    "aws-cdk": "2.1128.1",
+    "typescript": "5.6.3",
+    "@types/node": "22.7.5"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "2.260.0",
+    "constructs": "10.5.0"
+  }
+}

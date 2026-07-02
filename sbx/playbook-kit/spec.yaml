@@ -1,0 +1,22 @@
+schemaVersion: "1"
+kind: mixin
+name: playbook-codex
+displayName: Coding Agent Playbook (codex egress for claude box)
+description: built-in claude agent の box に codex のサブスク egress を足す mixin (auth.json 転送方式)
+
+# built-in claude agent (`sbx run claude`) を base にする理由:
+#   - built-in agent だと sbx が secret を proxy 注入できる (API key は box に入らず secure)。
+#     custom (kind:sandbox) agent では placeholder の proxy 登録が起きず proxy 注入が効かないため。
+#     なお anthropic サブスク (Pro/Max) は `sbx secret set` 不可で箱内 /login が必要、その OAuth
+#     トークンは box 内に保存される (sbx/README.md の「認証」参照)。proxy 注入対象は API key のみ。
+#   - codex のサブスクは proxy 注入されない (placeholder 登録は built-in codex agent 限定)。
+#     そこで host の ~/.codex/auth.json を box に転送し codex に実トークンを直接渡す
+#     (sbx/README.md の「codex のサブスク認証」参照)。本 mixin は codex の egress 先だけを開ける。
+#
+# serviceDomains/serviceAuth は付けない = proxy は codex の auth header を触らない。
+# codex は転送した auth.json の実トークンで chatgpt.com に直接話し auth.openai.com で自動 refresh する。
+network:
+  allowedDomains:
+    - "chatgpt.com:443"
+    - "auth.openai.com:443"
+    - "api.openai.com:443"

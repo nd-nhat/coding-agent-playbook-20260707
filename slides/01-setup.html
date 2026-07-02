@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>環境構築 | Coding Agent Playbook</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.2.1/dist/reveal.css" integrity="sha384-tK61vs+AeByBmiQ/i6CLgp/PbaaoB/k7M4J5mlX70GVtBPGUk5avjbXhSwhsf3fS" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.2.1/dist/theme/white.css" integrity="sha384-flndleNngtsjA21lEvW9JpgOND8agbgm+1EI+KQFbNa0OcOWGydVQbh+G3H2E1dI" crossorigin="anonymous">
+  <style>
+    :root {
+      --r-main-font: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", "Meiryo", sans-serif;
+      --r-heading-font: var(--r-main-font);
+      --accent: #1f6feb;
+    }
+    .reveal { font-family: var(--r-main-font); }
+    .reveal h1, .reveal h2, .reveal h3 { font-family: var(--r-heading-font); color: #0d2b4e; text-transform: none; letter-spacing: 0; }
+    .reveal h1 { font-size: 2.1em; }
+    .reveal h2 { font-size: 1.55em; }
+    /* スライドは 1280x720 の枠を canvas とし、中身は上端から流す。枠に収まらないスライドは下の script で等倍縮小して全体を表示する (隠さない) */
+    .reveal .slides { text-align: left; }
+    .reveal section { height: 100%; top: 0 !important; padding: 40px 88px; box-sizing: border-box; }
+    .reveal .fit-wrap { width: 100%; }
+    .reveal h2 { margin-top: 0; margin-bottom: .55em; border-bottom: 3px solid var(--accent); padding-bottom: .2em; }
+    .reveal ul { margin: 0; }
+    .reveal li { margin: .4em 0; line-height: 1.5; }
+    .reveal strong { color: var(--accent); }
+    /* インラインコードは chip 状にして地の文と視覚的に区別する */
+    .reveal code { background: #edf2f9; color: #143d6b; padding: .08em .4em; border-radius: .25em; font-size: .9em; }
+    /* mermaid が svg に inline max-width を設定するため、全幅表示に上書きする */
+    .reveal .mermaid svg { width: 100%; max-width: none; height: auto; }
+    /* タイトル扉 (h1 のみのスライド) は枠の中央に置く */
+    .reveal section.title-slide { display: flex !important; flex-direction: column; justify-content: center; }
+    .reveal section.title-slide h1, .reveal section.title-slide h2 { border: none; }
+    .reveal .subtle { color: #5a6b7b; font-size: .7em; }
+  </style>
+</head>
+<body>
+  <div class="reveal">
+    <div class="slides">
+      <section data-markdown data-separator="\r?\n---\r?\n">
+        <textarea data-template>
+<!-- .slide: class="title-slide" -->
+# 環境構築
+
+---
+
+## 事前に用意するアカウント
+
+- **Docker** アカウント（`sbx login` で使用）
+- **Anthropic** — Claude サブスク（Pro/Max）または API key
+- **OpenAI** — ChatGPT サブスク（codex のレビューで使用）
+- **GitHub** — fine-grained PAT を発行できること
+
+---
+
+## 前提（host に用意するツール）
+
+- Docker + `sbx` CLI v0.31+（[Docker Sandboxes](https://docs.docker.com/ai/sandboxes/)。`sbx version` で確認）
+- git 2.48+
+- `claude` CLI（`claude setup-token` の長期トークン発行に使用。API key 経路なら省略可）
+- 設定は repo に同梱 — **clone するだけで揃う**（個人の `~/.claude` に依存しない）
+
+---
+
+## 初回セットアップ（マシンに 1 回）
+
+- repo を clone（PR フローまで自分で体験するなら **fork** して自分のコピーを clone。fork 時は "Copy the `main` branch only" を**外す** — 講義は `stage/*` ブランチを使う）
+- `sbx login` — Docker アカウント認証
+- secret を 3 種登録（次スライド）
+
+---
+
+## secret 登録（box を立てる前に）
+
+- anthropic: `sbx secret set -g anthropic`（`claude setup-token` の長期トークン、または API key を貼る）
+- github: fine-grained PAT（対象 repo 限定 / 権限 5 種）→ `sbx secret set -g github`
+- openai: `sbx secret set -g openai --oauth`（browser で ChatGPT 認証）
+- **後から登録すると box の再作成が必要**（secret は box 作成時にのみ反映）
+- PAT の発行手順・権限の根拠は `docs/setup.md` 参照
+
+---
+
+## 初回の立ち上げ
+
+- `bash scripts/dev.sh` — dev box が立ち、その中で claude が起動する
+- 初回は image build 込みで約 5 分（以降は数秒）
+- codex reviewer（`cdx-<NAME>` pair）も自動で立つ — 手動セットアップ不要
+- Windows は対応する `.ps1`（`powershell -ExecutionPolicy Bypass -File scripts/dev.ps1`）
+- 困ったら `bash scripts/check-setup.sh`（環境 doctor）
+
+---
+
+<!-- .slide: class="title-slide" -->
+## 次のフェーズへ
+**[壁打ち →](02-brainstorm.html)**
+        </textarea>
+      </section>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/reveal.js@5.2.1/dist/reveal.js" integrity="sha384-rZIIVPQD/+U9IL3I62KrBHuVtPgYv+xdXvER5RBiVQRszJEJfLKRrcrZwI7fhcHT" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/reveal.js@5.2.1/plugin/markdown/markdown.js" integrity="sha384-ee/QmFMUwC+YUuswSDzliKj27Anp3rSblE1ujBcPKyrzwG15Daa1GL6JcNbPg/oG" crossorigin="anonymous"></script>
+  <script>
+    Reveal.initialize({
+      hash: true,
+      center: false,
+      width: 1280,
+      height: 720,
+      margin: 0,
+      slideNumber: "c/t",
+      plugins: [ RevealMarkdown ],
+    }).then(() => {
+      // 枠 (720px) に収まらないスライドは中身を等倍縮小して全体を表示する (隠さない)
+      const fit = () => {
+        const sec = Reveal.getCurrentSlide();
+        if (!sec) return;
+        let wrap = sec.querySelector(":scope > .fit-wrap");
+        if (!wrap) {
+          wrap = document.createElement("div");
+          wrap.className = "fit-wrap";
+          while (sec.firstChild) wrap.appendChild(sec.firstChild);
+          sec.appendChild(wrap);
+        }
+        wrap.style.transform = "none";
+        wrap.style.width = "100%";
+        const cs = getComputedStyle(sec);
+        const avail = 720 - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+        wrap.style.transformOrigin = "top left";
+        // 縮小時は倍率ぶん wrap を広げて縮小後に全幅へ戻す (縮小だけだと 100% 幅で折り返した行が縮み右側が空く)。幅を変えると折り返しで高さも変わるため二分探索で倍率を確定する
+        const fits = (s) => { wrap.style.width = (100 / s) + "%"; return wrap.scrollHeight * s <= avail + 0.5; };
+        let scale = 1;
+        if (!fits(1)) {
+          // 100% 幅時の縮小率を下限に取る (幅を広げると高さは増えないため必ず収まる保証付き = 収まらないまま探索が終わる床を持たない)
+          let lo = avail / wrap.scrollHeight, hi = 1;
+          for (let i = 0; i < 8; i++) { const mid = (lo + hi) / 2; if (fits(mid)) lo = mid; else hi = mid; }
+          scale = lo;
+          fits(scale);
+        }
+        wrap.style.transform = scale < 1 ? "scale(" + scale + ")" : "none";
+      };
+      fit();
+      Reveal.on("slidechanged", fit);
+      window.addEventListener("resize", fit);
+      // mermaid の <script> を読み込んだデッキだけ図を描画する (レイアウトが変わるので描画後に fit を再計算)
+      if (window.mermaid) {
+        mermaid.initialize({ startOnLoad: false, theme: "neutral", flowchart: { htmlLabels: false } });
+        mermaid.run().catch((e) => console.error("mermaid render failed", e)).then(fit);
+      }
+    });
+  </script>
+</body>
+</html>

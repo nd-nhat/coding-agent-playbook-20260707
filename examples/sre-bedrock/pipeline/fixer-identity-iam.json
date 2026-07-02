@@ -1,0 +1,83 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "FixerInvokeBedrockViaInferenceProfile",
+      "Effect": "Allow",
+      "Action": [
+        "bedrock:InvokeModel",
+        "bedrock:InvokeModelWithResponseStream"
+      ],
+      "Resource": [
+        "arn:aws:bedrock:*:ACCOUNT_ID:inference-profile/INFERENCE_PROFILE_ID"
+      ]
+    },
+    {
+      "Sid": "FixerInvokeBedrockFoundationModelViaProfileOnly",
+      "Effect": "Allow",
+      "Action": [
+        "bedrock:InvokeModel",
+        "bedrock:InvokeModelWithResponseStream"
+      ],
+      "Resource": [
+        "arn:aws:bedrock:*::foundation-model/anthropic.ANTHROPIC_MODEL_ID"
+      ],
+      "Condition": {
+        "StringLike": {
+          "bedrock:InferenceProfileArn": "arn:aws:bedrock:*:ACCOUNT_ID:inference-profile/INFERENCE_PROFILE_ID"
+        }
+      }
+    },
+    {
+      "Sid": "FixerReadSanitizedTriageObjectOnly",
+      "Effect": "Allow",
+      "Action": ["s3:GetObject"],
+      "Resource": "arn:aws:s3:::TRIAGE_HANDOFF_BUCKET/triage/*"
+    },
+    {
+      "Sid": "FixerGetOwnGitHubTokenSecret",
+      "Effect": "Allow",
+      "Action": ["secretsmanager:GetSecretValue"],
+      "Resource": "arn:aws:secretsmanager:REGION:ACCOUNT_ID:secret:FIXER_GITHUB_TOKEN_SECRET-*"
+    },
+    {
+      "Sid": "FixerOwnLogs",
+      "Effect": "Allow",
+      "Action": ["logs:CreateLogStream", "logs:PutLogEvents"],
+      "Resource": "arn:aws:logs:REGION:ACCOUNT_ID:log-group:FIXER_LOG_GROUP_NAME:*"
+    },
+    {
+      "Sid": "DenyIncidentAndAppDataRead",
+      "Effect": "Deny",
+      "Action": [
+        "logs:StartQuery",
+        "logs:GetQueryResults",
+        "logs:GetLogRecord",
+        "logs:FilterLogEvents",
+        "logs:GetLogEvents",
+        "logs:StartLiveTail",
+        "cloudwatch:GetMetricData",
+        "cloudwatch:GetMetricStatistics"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "DenyTriageBucketEnumeration",
+      "Effect": "Deny",
+      "Action": ["s3:ListBucket", "s3:ListBucketVersions"],
+      "Resource": "arn:aws:s3:::TRIAGE_HANDOFF_BUCKET"
+    },
+    {
+      "Sid": "DenyCredentialBroker",
+      "Effect": "Deny",
+      "Action": [
+        "sts:AssumeRole",
+        "sts:AssumeRoleWithWebIdentity",
+        "sts:AssumeRoleWithSAML",
+        "sts:GetFederationToken",
+        "sts:GetSessionToken"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
