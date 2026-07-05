@@ -46,45 +46,50 @@
 
 ## このフェーズでやること
 
-- 健全な MVP（`stage/05-fixed`）を土台に、**障害対応を 2 シナリオ**で実演
-- **A**: 上流 API の契約ドリフト — read-only の observe box で調査して修正
-- **B**: サーバ 500 — cloud 常駐の**無人 SRE fixer** が fix PR を自動生成
+- 入口が障害なだけで、頼む → PR → merge 判断はいつも通り
+- **A**: AWS のログを **read-only** で調査して、原因を直して PR
+- **B**: 500 エラーを起点に、**無人**の fixer が自動で修正 PR を作る
+- **stage 起点が必須**のフェーズ（仕込みバグは地続きで再現しない）
 
 ---
 
-## 構成（AWS まわり）
+## シナリオ A の構成（read と write を分ける）
 
 <div class="mermaid">
 flowchart LR
-  subgraph SBX["Docker Sandboxes"]
-    O["observe box（AWS read-only）"]
-    D["dev box（修正担当）"]
-  end
-  AWS["AWS（本番相当）"]
-  FX["無人 SRE fixer（AWS 常駐）"]
-  GH["GitHub"]
-  O -. "ログ調査（read-only cred）" .-> AWS
-  AWS -- "エラー triage を S3 に handoff" --> FX
-  FX -- "fix PR を無人生成" --> GH
-  D -- "修正 PR（シナリオ A）" --> GH
+  O["observe box（read-only）"] -. "ログ調査" .-> AWS["AWS（本番相当）"]
+  O -- "調査結果だけ渡す" --> D["dev box（write）"]
+  D -- "修正 PR" --> GH["GitHub"]
 </div>
 
 ---
 
-## シナリオ A: local 調査（observe box）
+## シナリオ A: claude に貼る 3 行
 
-- `git switch stage/06-readings-drift-broken` から始める（**このフェーズは stage 起点が必須** — 仕込まれたバグを扱うため）
-- 調査は **AWS read-only の observe box**、修正 PR は dev box（権限 persona を混ぜない）
-- `/observe-session` は **host の claude に投げる**（dev box では不可）→ observe box のログから壊れた層を切り分ける
-- 答え合わせ: `stage/07-readings-drift-fixed`（修正は app の 2 ファイルだけ）
+- `git switch stage/06-readings-drift-broken` から始める
+- ① host の claude: `/observe-session で調査用の observe box を立てて`
+- ② observe box の claude: `ログから壊れている層を切り分けて`
+- ③ dev box の claude: `調査で分かった原因を直して PR にして`
 
 ---
 
-## シナリオ B: 500 エラーから PR 作成
+## シナリオ B の構成（500 から無人で fix PR）
 
-- `git switch stage/08-server-500-broken` から始める（同じく **stage 起点が必須**）
-- エラーの triage を受けて**無人 pipeline が fix PR を生成**（実 [PR #159](https://github.com/kanka-jp/coding-agent-playbook/pull/159) をその場で見せる）
-- **PR は無人・merge は人間** — 自動化の境界線をそのまま教材にする
+<div class="mermaid">
+flowchart LR
+  AWS["AWS（本番相当）"] -- "500 の triage を S3 に" --> FX["無人 SRE fixer（常駐）"]
+  FX -- "fix PR（無人）" --> GH["GitHub"]
+  H["人間"] -- "merge 判断" --> GH
+</div>
+
+---
+
+## シナリオ B: デモの流れ
+
+- `git switch stage/08-server-500-broken` → deploy して 500 を起こす（講師デモ）
+- triage が S3 に渡ると以降は**無人**: 常駐 fixer が調査 → fix PR
+- PR は無人・**merge は人間**
+- 自分の AWS で回すなら `examples/sre-bedrock/README.md`
 
 ---
 
@@ -101,6 +106,9 @@ flowchart LR
   <script src="https://cdn.jsdelivr.net/npm/reveal.js@5.2.1/plugin/markdown/markdown.js" integrity="sha384-ee/QmFMUwC+YUuswSDzliKj27Anp3rSblE1ujBcPKyrzwG15Daa1GL6JcNbPg/oG" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/mermaid@11.16.0/dist/mermaid.min.js" integrity="sha384-T/0lMUdJpd2S1ZHtRiofG3htU3xPCrFVeAQ1UUE2TJwlEJSV5NUwn30kP28n238E" crossorigin="anonymous"></script>
   <script>
+    // mermaid の auto-start (startOnLoad 既定 true) は window load で走り、reveal の slide 非表示化と
+    // race して図が空 viewBox に潰れるため、読み込み直後に無効化する (描画は下の ready 後ブロック)
+    if (window.mermaid) mermaid.initialize({ startOnLoad: false, theme: "neutral", flowchart: { htmlLabels: false } });
     Reveal.initialize({
       hash: true,
       center: false,
@@ -143,8 +151,33 @@ flowchart LR
       window.addEventListener("resize", fit);
       // mermaid の <script> を読み込んだデッキだけ図を描画する (レイアウトが変わるので描画後に fit を再計算)
       if (window.mermaid) {
-        mermaid.initialize({ startOnLoad: false, theme: "neutral", flowchart: { htmlLabels: false } });
-        mermaid.run().catch((e) => console.error("mermaid render failed", e)).then(fit);
+        // 非表示 slide 上で描画するとテキスト幅が 0 に測られ空 viewBox (幅 16px) に潰れるため、
+        // offscreen の可視コンテナで描画する。万一潰れた図は source から再描画してヒーリングする
+        const graphs = Array.from(document.querySelectorAll(".mermaid"));
+        graphs.forEach((g) => { g.__mermaidSrc = g.textContent; });
+        const collapsed = (g) => { const svg = g.querySelector("svg"); return !svg || svg.viewBox.baseVal.width < 32; };
+        const renderPass = async (targets) => {
+          const pen = document.createElement("div");
+          pen.style.cssText = "position:absolute;left:-10000px;top:0;width:1280px;visibility:hidden;";
+          document.body.appendChild(pen);
+          const slots = targets.map((g) => { const m = document.createComment("mermaid-slot"); g.parentNode.insertBefore(m, g); pen.appendChild(g); return m; });
+          try { await mermaid.run({ nodes: targets }); }
+          finally { targets.forEach((g, i) => { slots[i].parentNode.insertBefore(g, slots[i]); slots[i].remove(); }); pen.remove(); }
+        };
+        (async () => {
+          try {
+            if (graphs.length) await renderPass(graphs);
+            for (let retry = 0; retry < 3; retry++) {
+              const bad = graphs.filter(collapsed);
+              if (!bad.length) break;
+              await document.fonts.ready;
+              await new Promise((r) => setTimeout(r, 150 * (retry + 1)));
+              bad.forEach((g) => { g.removeAttribute("data-processed"); g.textContent = g.__mermaidSrc; });
+              await renderPass(bad);
+            }
+          } catch (e) { console.error("mermaid render failed", e); }
+          fit();
+        })();
       }
     });
   </script>

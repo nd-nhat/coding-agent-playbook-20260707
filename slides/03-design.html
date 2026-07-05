@@ -86,6 +86,9 @@
   <script src="https://cdn.jsdelivr.net/npm/reveal.js@5.2.1/dist/reveal.js" integrity="sha384-rZIIVPQD/+U9IL3I62KrBHuVtPgYv+xdXvER5RBiVQRszJEJfLKRrcrZwI7fhcHT" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/reveal.js@5.2.1/plugin/markdown/markdown.js" integrity="sha384-ee/QmFMUwC+YUuswSDzliKj27Anp3rSblE1ujBcPKyrzwG15Daa1GL6JcNbPg/oG" crossorigin="anonymous"></script>
   <script>
+    // mermaid の auto-start (startOnLoad 既定 true) は window load で走り、reveal の slide 非表示化と
+    // race して図が空 viewBox に潰れるため、読み込み直後に無効化する (描画は下の ready 後ブロック)
+    if (window.mermaid) mermaid.initialize({ startOnLoad: false, theme: "neutral", flowchart: { htmlLabels: false } });
     Reveal.initialize({
       hash: true,
       center: false,
@@ -128,8 +131,33 @@
       window.addEventListener("resize", fit);
       // mermaid の <script> を読み込んだデッキだけ図を描画する (レイアウトが変わるので描画後に fit を再計算)
       if (window.mermaid) {
-        mermaid.initialize({ startOnLoad: false, theme: "neutral", flowchart: { htmlLabels: false } });
-        mermaid.run().catch((e) => console.error("mermaid render failed", e)).then(fit);
+        // 非表示 slide 上で描画するとテキスト幅が 0 に測られ空 viewBox (幅 16px) に潰れるため、
+        // offscreen の可視コンテナで描画する。万一潰れた図は source から再描画してヒーリングする
+        const graphs = Array.from(document.querySelectorAll(".mermaid"));
+        graphs.forEach((g) => { g.__mermaidSrc = g.textContent; });
+        const collapsed = (g) => { const svg = g.querySelector("svg"); return !svg || svg.viewBox.baseVal.width < 32; };
+        const renderPass = async (targets) => {
+          const pen = document.createElement("div");
+          pen.style.cssText = "position:absolute;left:-10000px;top:0;width:1280px;visibility:hidden;";
+          document.body.appendChild(pen);
+          const slots = targets.map((g) => { const m = document.createComment("mermaid-slot"); g.parentNode.insertBefore(m, g); pen.appendChild(g); return m; });
+          try { await mermaid.run({ nodes: targets }); }
+          finally { targets.forEach((g, i) => { slots[i].parentNode.insertBefore(g, slots[i]); slots[i].remove(); }); pen.remove(); }
+        };
+        (async () => {
+          try {
+            if (graphs.length) await renderPass(graphs);
+            for (let retry = 0; retry < 3; retry++) {
+              const bad = graphs.filter(collapsed);
+              if (!bad.length) break;
+              await document.fonts.ready;
+              await new Promise((r) => setTimeout(r, 150 * (retry + 1)));
+              bad.forEach((g) => { g.removeAttribute("data-processed"); g.textContent = g.__mermaidSrc; });
+              await renderPass(bad);
+            }
+          } catch (e) { console.error("mermaid render failed", e); }
+          fit();
+        })();
       }
     });
   </script>
