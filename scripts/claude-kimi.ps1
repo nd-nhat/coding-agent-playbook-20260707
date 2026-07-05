@@ -1,6 +1,6 @@
 # claude-kimi: launch the Claude Code CLI against Moonshot (Kimi)'s Anthropic-compatible
 # endpoint. Fallback for Anthropic API outages: keeps skills / MCP / the dev flow and
-# swaps only the model backend. See docs/kimi-fallback.md for the full picture and
+# swaps only the model backend. See docs/guide/kimi-fallback.md for the full picture and
 # caveats. PowerShell pair of claude-kimi.sh.
 $ErrorActionPreference = "Stop"
 

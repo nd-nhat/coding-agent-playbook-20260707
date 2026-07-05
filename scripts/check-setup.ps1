@@ -156,11 +156,11 @@ foreach ($line in $secrets) {
   }
 }
 # anthropic: not registered is the expected state on a subscription (/login in the first box auto-provisions
-# later boxes, sbx v0.34.0); registering a setup-token forces apikey mode and breaks 'claude -p' (docs/setup.md)
+# later boxes, sbx v0.34.0); registering a setup-token forces apikey mode and breaks 'claude -p' (docs/guide/setup.md)
 if ($anthropicOauth) {
   Write-Ok "sbx secret 'anthropic' (global) is oauth configured (/login seeding done; do NOT sbx secret rm - it breaks auth in existing boxes)"
 } elseif ($hasAnthropic) {
-  Write-Warn "sbx secret 'anthropic' (global) has an API-key / setup-token entry - fine for the API-key route" "On a subscription (Pro/Max) this forces apikey mode and breaks 'claude -p': run sbx secret rm -g anthropic, recreate boxes, then /login in the first box (needs sbx v0.34.0+; docs/setup.md)"
+  Write-Warn "sbx secret 'anthropic' (global) has an API-key / setup-token entry - fine for the API-key route" "On a subscription (Pro/Max) this forces apikey mode and breaks 'claude -p': run sbx secret rm -g anthropic, recreate boxes, then /login in the first box (needs sbx v0.34.0+; docs/guide/setup.md)"
 } else {
   Write-Ok "sbx secret 'anthropic' (global) not registered (subscription: /login in the first box, auto-provision needs sbx v0.34.0+; API billing: sbx secret set -g anthropic)"
 }
@@ -264,13 +264,13 @@ if (-not $Quick -and $hasImage -and $hasGithub) {
         # (a) Pull requests RO + Repository access (RW probe would require destructive PR/commit creation; rely on workshop's gh pr create surfacing RW shortfall)
         & sbx exec $probeBox gh pr list -R $repoSlug --limit 1 > $null 2>&1
         if ($LASTEXITCODE -eq 0) {
-          # (b) Actions RO (required by /pr-codex-ci's gh pr checks; docs/setup.md lists it as mandatory)
+          # (b) Actions RO (required by /pr-codex-ci's gh pr checks; docs/guide/setup.md lists it as mandatory)
           & sbx exec $probeBox gh api "repos/$repoSlug/actions/runs?per_page=1" > $null 2>&1
           if ($LASTEXITCODE -eq 0) {
             Write-Ok "github PAT is valid (Pull requests RO + Actions RO + repository access for $repoSlug)"
           } else {
             $errOut = (& sbx exec $probeBox gh api "repos/$repoSlug/actions/runs?per_page=1" 2>&1) -join ' '
-            Write-Ng "github PAT missing Actions: Read-only scope (/pr-codex-ci's gh pr checks will fail)" "Add Actions: Read-only to PAT permissions (docs/setup.md). Detail: $errOut"
+            Write-Ng "github PAT missing Actions: Read-only scope (/pr-codex-ci's gh pr checks will fail)" "Add Actions: Read-only to PAT permissions (docs/guide/setup.md). Detail: $errOut"
           }
         } else {
           $errOut = (& sbx exec $probeBox gh pr list -R $repoSlug --limit 1 2>&1) -join ' '

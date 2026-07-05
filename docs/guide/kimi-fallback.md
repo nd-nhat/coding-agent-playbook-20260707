@@ -59,4 +59,4 @@ MOONSHOT_API_KEY=<key> bash scripts/claude-kimi.sh
 
 wrapper は Moonshot 公式の [agent 連携ガイド](https://platform.kimi.ai/docs/guide/agent-support) どおりに `ANTHROPIC_BASE_URL=https://api.moonshot.ai/anthropic` / `ANTHROPIC_AUTH_TOKEN` / model 系 env を設定し、残存する Anthropic credential (`ANTHROPIC_API_KEY` / `CLAUDE_CODE_OAUTH_TOKEN`) と他 provider の routing selector (`CLAUDE_CODE_USE_BEDROCK` / `VERTEX` / `FOUNDRY`) を外してから `claude` を exec する。model は `KIMI_MODEL` で上書き可 (既定 `kimi-k2.7-code`)。
 
-- **host では YOLO (`--dangerously-skip-permissions`) を付けない**。本 repo の YOLO 前提は box の hypervisor 境界 ([sbx/README.md](../sbx/README.md)) であって model の信頼性ではない。host では承認プロンプト付きの通常運用で回す
+- **host では YOLO (`--dangerously-skip-permissions`) を付けない**。本 repo の YOLO 前提は box の hypervisor 境界 ([sbx/README.md](../../sbx/README.md)) であって model の信頼性ではない。host では承認プロンプト付きの通常運用で回す

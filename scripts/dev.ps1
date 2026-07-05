@@ -34,7 +34,7 @@ $Kit = "./sbx/playbook-kit"
 $KitKimi = "./sbx/playbook-kit-kimi"
 $NameRe = '\A[A-Za-z0-9][A-Za-z0-9-]*\z'
 $AppIdentityMarkerEnv = "APP_IDENTITY_ENABLE"
-# Kimi fallback (for Anthropic outages, runbook: docs/kimi-fallback.md): the marker launches new
+# Kimi fallback (for Anthropic outages, runbook: docs/guide/kimi-fallback.md): the marker launches new
 # boxes' claude on the Kimi backend. The placeholder below is a public routing value, not a secret
 # (the proxy swaps it for the real key only in requests to api.moonshot.ai; the key never enters the box).
 $KimiMarkerEnv = "PLAYBOOK_KIMI_ENABLE"
@@ -99,7 +99,7 @@ function Invoke-KimiPreflight {
   Write-Host "error: the $KimiMarkerEnv marker is set but the Moonshot API key (custom secret) is not registered (or was registered under a host other than $KimiKeyHost)." -ForegroundColor Red
   Write-Host "       register: sbx secret set-custom -g --host $KimiKeyHost --placeholder $KimiKeyPlaceholder --value <MOONSHOT_API_KEY>" -ForegroundColor Red
   Write-Host "       remove marker (global): sbx secret rm -g --placeholder $KimiMarkerPlaceholder -f" -ForegroundColor Red
-  Write-Host "       remove marker (per-box): sbx secret rm $Name --placeholder $KimiMarkerPlaceholder -f  (details: docs/kimi-fallback.md)" -ForegroundColor Red
+  Write-Host "       remove marker (per-box): sbx secret rm $Name --placeholder $KimiMarkerPlaceholder -f  (details: docs/guide/kimi-fallback.md)" -ForegroundColor Red
   exit 1
 }
 

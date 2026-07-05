@@ -42,22 +42,37 @@
 <!-- .slide: class="title-slide" -->
 # 設計
 
+<span class="subtle">`stage/02-onepager`</span>
+
 ---
 
 ## このフェーズでやること
 
-- **自分の one-pager から地続き**で進む（追いつく / やり直すなら `git switch stage/02-onepager`）
 - one-pager から設計書 `app/docs/design.md` を起こす
-- monorepo 構成 / 外部連携のアダプタ境界 / AWS 構成まで含める
-- 到達点: `app/docs/design.md`
+- 未決の前提を**質問攻め**で洗い出す（grilling）
+- **Artifact** で画面モックを作って見た目を固める
+- 迷ったら **codex とも相談**する
 
 ---
 
-## 見どころ
+## 質問攻めさせる（grilling）
 
-- 設計段階で **codex の second opinion**（`/a2a-review`）を挟む — 別の目で設計の穴を見る
-- 外部 API を mock で差し替えられる**境界（seam）**を設計しておく
-- 境界があると実装・テスト・保守（上流 API の変更対応）が楽になる
+- 決まっていること（技術選定等）は**先に書いて渡す**
+- 未決は同梱の `/grilling` で**質問攻め**させて潰す
+
+---
+
+## Artifact で画面を設計する
+
+- 実装前に「**画面モックを Artifact にして**」と頼む — ブラウザですぐ開ける
+- 文章の設計書より**見た目で認識合わせ**が速い — 齟齬を実装前に潰す
+- 気に入った案を `design.md` に反映して実装へ
+
+---
+
+## codex とも相談する
+
+- 判断に迷ったら **codex にも設計を見せる** — box なら `/a2a-review`、host なら `/codex-review`
 
 ---
 

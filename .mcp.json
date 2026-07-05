@@ -3,6 +3,10 @@
     "chrome-devtools": {
       "command": "npx",
       "args": ["chrome-devtools-mcp@latest", "--isolated", "${CDP_HEADLESS:-}", "${CDP_EXEC:-}"]
+    },
+    "chrome-profile": {
+      "command": "npx",
+      "args": ["chrome-devtools-mcp@latest", "--browser-url=http://127.0.0.1:9335"]
     }
   }
 }

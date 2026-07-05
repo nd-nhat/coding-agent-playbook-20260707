@@ -11,7 +11,7 @@ GitHub が PR に付ける review（Copilot / qodo / codex-connector 等の bot 
 
 ## いつ使うか
 - PR に push した後、GitHub bot review（Copilot / qodo 等）が付いたとき
-- **merge 前**: ruleset の `required_review_thread_resolution` が未解決 thread で merge をブロックするため（[../../../docs/repo-settings.md](../../../docs/repo-settings.md)）
+- **merge 前**: ruleset の `required_review_thread_resolution` が未解決 thread で merge をブロックするため（[../../../docs/instructor/repo-settings.md](../../../docs/instructor/repo-settings.md)）
 
 ## 引数
 PR 番号。省略時は現在 branch の PR を `gh pr view --json number` で解決する。

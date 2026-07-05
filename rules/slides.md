@@ -1,18 +1,18 @@
 # Slides（講義スライドの構成・スタイル・検証規範）
 
-`slides/` の reveal.js デッキを作る・直すときの規範。配置の全体像（フェーズ単位・stage checkpoint との関係・stage ブランチに入れない）は [CLAUDE.md](../CLAUDE.md)「スライド」、講義運営側の手順（作る / 見る / 配信）は [docs/instructor.md](../docs/instructor.md)「スライド」参照。
+`slides/` の reveal.js デッキを作る・直すときの規範。配置の全体像（フェーズ単位・stage checkpoint との関係・stage ブランチに入れない）は [CLAUDE.md](../CLAUDE.md)「スライド」、講義運営側の手順（作る / 見る / 配信）は [docs/instructor/README.md](../docs/instructor/README.md)「スライド」参照。
 
 ## 構成と命名
 
 - **単一の自己完結 HTML**。reveal.js は CDN から**固定バージョン + SRI**（`integrity`）で読む。バージョンを上げる時は `integrity` ハッシュも再計算する（不一致だとブラウザがリソースをブロックして**無言で壊れる**）
 - 中身は `<textarea data-template>` 内の markdown 箇条書き。`---` でスライドを区切る。新規デッキは `slides/template.html` をコピーして markdown だけ編集する（**HTML 雛形は触らない**）
-- 命名は `NN-slug.html`: `00-intro`（導入）/ `01-setup`（環境構築）/ `02`–`06`（壁打ち → 設計 → 実装 → 仕上げ → 運用保守の 5 フェーズ）
-- **途中に番号を挿入する時は以降のデッキを `git mv` で繰り下げ、参照を同時更新する**。更新対象: 各デッキ末尾の nav リンク（次デッキへの chain）/ `slides/index.html` の一覧 / docs のスライド番号参照（[docs/instructor.md](../docs/instructor.md) / [docs/stage-playbook.md](../docs/stage-playbook.md) 等）。旧番号の grep で取りこぼしを確認する
+- 命名は `NN-slug.html`: `00-intro`（導入）/ `01-brainstorm`（壁打ち）/ `02-setup`（環境構築）/ `03`–`06`（設計 → 実装 → 並列開発 → 運用保守・バグ修正）。フェーズは 壁打ち → 設計 → 実装 → 並列開発 → 運用保守・バグ修正 の 5 つだが、壁打ちのデモを見せてから環境構築に入る流れのため 壁打ち(`01`) を環境構築(`02`) の前に置く（フェーズデッキは `01` と `03`–`06` に分かれ、`02` だけ非フェーズの環境構築）
+- **途中に番号を挿入する時は以降のデッキを `git mv` で繰り下げ、参照を同時更新する**。更新対象: 各デッキ末尾の nav リンク（次デッキへの chain）/ `slides/index.html` の一覧 / docs のスライド番号参照（[docs/instructor/README.md](../docs/instructor/README.md) / [docs/instructor/stage-playbook.md](../docs/instructor/stage-playbook.md) 等）。旧番号の grep で取りこぼしを確認する
 - デッキ末尾は `title-slide` の「次のフェーズへ」リンクで次デッキに繋ぐ（最終デッキは一覧へ戻る）
 
 ## スタイル規範（シンプル優先）
 
-- **タイトル扉は `# 見出し` 1 行だけ**。サブタイトル・フェーズ番号（`フェーズ N / 5` 等）・説明行を足さない
+- **タイトル扉は `# 見出し` 1 行だけ**。サブタイトル・フェーズ番号（`フェーズ N / 5` 等）・説明行を足さない。例外はフェーズの開始 checkpoint（追いつき・やり直し用セーブポイント）の branch 名 1 行のみ許す（`.subtle` の span に backtick chip で `stage/NN-…` を書く。運用保守デッキのようにシナリオ別 branch を本文で明示する場合は不要）
 - 本文スライドは `## 見出し` + フラットな箇条書き。**1 スライド 5 行前後**を目安に、ネストや長文で溢れそうなら**スライドを分割する**（後述の fit-scale に頼らない）
 - コマンド・ファイル名・フラグは backtick で書く（共有 CSS の `.reveal code` が chip 状に描画して地の文と視覚区別する）
 - 強調は `**bold**`（accent 色になる）を要点だけに
@@ -42,5 +42,5 @@
 
 ## 中身の担当
 
-- **フェーズデッキ（02–06）の本文は講師（人間）が所有する**。agent が中身を書く・書き換えるのは**講師が明示的に指示したときだけ**（勝手に埋めない。起案時は [docs/stage-playbook.md](../docs/stage-playbook.md) 等の SoT と突き合わせる）。agent の常時担当は雛形（`template.html`）と共有 CSS / fit-scale JS の保守
-- `00-intro`（導入）と `01-setup`（環境構築）は playbook 自身の説明なので、agent が repo 内容（README / docs/setup.md 等）から起案してよい（記載が SoT と食い違わないことを必ず突き合わせる）
+- **フェーズデッキ（`01-brainstorm` と `03`–`06`）の本文は講師（人間）が所有する**。agent が中身を書く・書き換えるのは**講師が明示的に指示したときだけ**（勝手に埋めない。起案時は [docs/instructor/stage-playbook.md](../docs/instructor/stage-playbook.md) 等の SoT と突き合わせる）。agent の常時担当は雛形（`template.html`）と共有 CSS / fit-scale JS の保守
+- `00-intro`（導入）と `02-setup`（環境構築）は playbook 自身の説明なので、agent が repo 内容（README / docs/guide/setup.md 等）から起案してよい（記載が SoT と食い違わないことを必ず突き合わせる）

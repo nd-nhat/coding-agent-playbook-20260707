@@ -4,7 +4,7 @@ name: playbook-kimi
 displayName: Coding Agent Playbook (Kimi backend for claude box)
 description: box の claude を Moonshot (Kimi) の Anthropic 互換 endpoint に切り替える mixin (Anthropic 障害時の fallback)
 
-# 有効化は dev.sh の marker secret toggle (PLAYBOOK_KIMI_ENABLE) 経由。全体像は docs/kimi-fallback.md。
+# 有効化は dev.sh の marker secret toggle (PLAYBOOK_KIMI_ENABLE) 経由。全体像は docs/guide/kimi-fallback.md。
 #
 # ANTHROPIC_AUTH_TOKEN の値は固定 placeholder (公開値・secret ではない): host 登録済み custom secret の
 # 実 key に proxy が置換する (api.moonshot.ai 宛 request 中のみ、実 key は box に入らない)。

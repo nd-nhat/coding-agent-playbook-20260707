@@ -1,6 +1,6 @@
 # CI workflows
 
-本リポは現在 **private repo** のため、GitHub Actions の無料分消費を避けて lint 系 workflow (`actionlint.yml` / `shellcheck.yml` / `python-syntax.yml` / `ps1-ascii.yml`) を **`on: workflow_dispatch`** のみで定義している (= push / pull_request では自動実行されない、Actions タブから手動 trigger でのみ走る)。`pages.yml` は例外で、下記「GitHub Pages (`pages.yml`) の有効化」の通り `slides/**` 限定の `push` trigger を有効にしている (1 run の実行時間が小さく private repo でも課金影響が軽微なため)。
+本リポは現在 **private repo** のため、GitHub Actions の無料分消費を避けて lint 系 workflow (`actionlint.yml` / `shellcheck.yml` / `python-syntax.yml` / `ps1-ascii.yml` / `md-links.yml`) を **`on: workflow_dispatch`** のみで定義している (= push / pull_request では自動実行されない、Actions タブから手動 trigger でのみ走る)。`pages.yml` は例外で、下記「GitHub Pages (`pages.yml`) の有効化」の通り `slides/**` 限定の `push` trigger を有効にしている (1 run の実行時間が小さく private repo でも課金影響が軽微なため)。
 
 ## 規範: main の workflow は branch ゲート必須
 
@@ -8,7 +8,7 @@
 
 ## TODO: public 化時の有効化手順 (lint 系 workflow)
 
-本リポを public にする (または private のまま lint 系 workflow も自動実行したくなった) とき、`actionlint.yml` / `shellcheck.yml` / `python-syntax.yml` / `ps1-ascii.yml` の `on:` を以下のように書き換える (`pages.yml` は既に push trigger 済みのため対象外):
+本リポを public にする (または private のまま lint 系 workflow も自動実行したくなった) とき、`actionlint.yml` / `shellcheck.yml` / `python-syntax.yml` / `ps1-ascii.yml` / `md-links.yml` の `on:` を以下のように書き換える (`pages.yml` は既に push trigger 済みのため対象外):
 
 ```yaml
 on:
@@ -28,6 +28,7 @@ on:
 | [`shellcheck.yml`](shellcheck.yml) | 全 tracked `*.sh` (`scripts/` + `examples/`) | bash script の static analysis (cross-platform 要件のため重要) |
 | [`python-syntax.yml`](python-syntax.yml) | 全 tracked `*.py` + triage-lambda unittest | 全 Python の syntax を `py_compile` で check + stdlib unittest (boto3 不要) で correctness を常時検証 |
 | [`ps1-ascii.yml`](ps1-ascii.yml) | 全 tracked `*.ps1` | PowerShell script が ASCII only か check (Windows PowerShell 5.1 の BOM-less ANSI 読み対策、cross-platform 要件) |
+| [`md-links.yml`](md-links.yml) | 全 tracked `*.md` | 相対 markdown リンクの実在検査 (`scripts/internal/check-links.js`。委譲リンク網がファイル移動で腐るのを防ぐ) |
 | [`pages.yml`](pages.yml) | `slides/` | 講義スライドを GitHub Pages に配信 (deploy 系。lint とは別軸。`push` (`slides/**` 限定) + `workflow_dispatch`) |
 
 ## GitHub Pages (`pages.yml`) の有効化

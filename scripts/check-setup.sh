@@ -107,11 +107,11 @@ secret_is_oauth() {
 }
 
 # 3. anthropic secret (global): サブスク (Pro/Max) は未登録が正 (最初の box で /login すれば v0.34.0 で自動 provision)。
-#    登録が要るのは API 課金経路のみで、サブスクで setup-token を登録すると apikey mode 化で claude -p が壊れる (docs/setup.md「認証 secret の詳細」)
+#    登録が要るのは API 課金経路のみで、サブスクで setup-token を登録すると apikey mode 化で claude -p が壊れる (docs/guide/setup.md「認証 secret の詳細」)
 if secret_is_oauth anthropic; then
   ok "sbx secret 'anthropic' (global) は oauth configured (/login seeding 済み。sbx secret rm しないこと — 既存 box の認証が壊れる)"
 elif has_secret anthropic; then
-  warn "sbx secret 'anthropic' (global) に API key / setup-token 型が登録済 — API key 経路なら OK" "サブスク (Pro/Max) の場合は apikey mode 化で 'claude -p' が壊れる: sbx secret rm -g anthropic して box を作り直し、最初の box で /login (要 sbx v0.34.0+。docs/setup.md)"
+  warn "sbx secret 'anthropic' (global) に API key / setup-token 型が登録済 — API key 経路なら OK" "サブスク (Pro/Max) の場合は apikey mode 化で 'claude -p' が壊れる: sbx secret rm -g anthropic して box を作り直し、最初の box で /login (要 sbx v0.34.0+。docs/guide/setup.md)"
 else
   ok "sbx secret 'anthropic' (global) 未登録 (サブスクは最初の box で /login — 自動 provision は sbx v0.34.0+。API 課金なら sbx secret set -g anthropic に API key)"
 fi
@@ -208,12 +208,12 @@ elif [ "$IMAGE_PRESENT" = 1 ] && [ "$GITHUB_SECRET_PRESENT" = 1 ]; then
       trap 'sbx rm -f "'"$probe_box"'" >/dev/null 2>&1 || true' EXIT
       # (a) Pull requests RO + Repository access (gh pr create が後で書き込み権限 fail することは destructive probe 無しでは検出不能なので RO で代替し、workshop 序盤の gh pr create での発覚を許容)
       if sbx exec "$probe_box" gh pr list -R "$repo_slug" --limit 1 >/dev/null 2>&1; then
-        # (b) Actions RO (/pr-codex-ci の gh pr checks 経路で必須。docs/setup.md が明示要求)
+        # (b) Actions RO (/pr-codex-ci の gh pr checks 経路で必須。docs/guide/setup.md が明示要求)
         if sbx exec "$probe_box" gh api "repos/$repo_slug/actions/runs?per_page=1" >/dev/null 2>&1; then
           ok "github PAT が valid ($repo_slug の Pull requests RO + Actions RO + Repository access OK)"
         else
           err=$(sbx exec "$probe_box" gh api "repos/$repo_slug/actions/runs?per_page=1" 2>&1 | tail -3 | tr '\n' ' ' | sed 's/  */ /g')
-          ng "github PAT の Actions: Read-only scope 不足 (/pr-codex-ci の gh pr checks で fail する)" "PAT permissions に Actions: Read-only を追加 (docs/setup.md)。詳細: $err"
+          ng "github PAT の Actions: Read-only scope 不足 (/pr-codex-ci の gh pr checks で fail する)" "PAT permissions に Actions: Read-only を追加 (docs/guide/setup.md)。詳細: $err"
         fi
       else
         err=$(sbx exec "$probe_box" gh pr list -R "$repo_slug" --limit 1 2>&1 | tail -3 | tr '\n' ' ' | sed 's/  */ /g')

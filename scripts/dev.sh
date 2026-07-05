@@ -23,7 +23,7 @@ NAME_RE='^[A-Za-z0-9][A-Za-z0-9-]*$'
 #   sbx secret set-custom <box> --host app-identity.invalid --env APP_IDENTITY_ENABLE --value 1
 _APP_BROKER_CONFIG=".claude/app-broker.local.json"
 _APP_IDENTITY_MARKER_ENV="APP_IDENTITY_ENABLE"
-# Kimi fallback (Anthropic 障害時、手順: docs/kimi-fallback.md): marker が立つと新規 box の claude を
+# Kimi fallback (Anthropic 障害時、手順: docs/guide/kimi-fallback.md): marker が立つと新規 box の claude を
 # Kimi backend で起動する。下記 placeholder は公開の routing 値で secret ではない (proxy が
 # api.moonshot.ai 宛 request 中でのみ実 key に置換し、実 key は box に入らない)。
 _KIMI_MARKER_ENV="PLAYBOOK_KIMI_ENABLE"
@@ -77,7 +77,7 @@ _kimi_preflight() {
   echo "error: $_KIMI_MARKER_ENV marker が立っていますが Moonshot API key (custom secret) が未登録です (または --host $_KIMI_KEY_HOST 以外に登録されています)。" >&2
   echo "       登録: sbx secret set-custom -g --host $_KIMI_KEY_HOST --placeholder $_KIMI_KEY_PLACEHOLDER --value <MOONSHOT_API_KEY>" >&2
   echo "       marker 解除 (global): sbx secret rm -g --placeholder $_KIMI_MARKER_PLACEHOLDER -f" >&2
-  echo "       marker 解除 (per-box): sbx secret rm $name --placeholder $_KIMI_MARKER_PLACEHOLDER -f  (詳細: docs/kimi-fallback.md)" >&2
+  echo "       marker 解除 (per-box): sbx secret rm $name --placeholder $_KIMI_MARKER_PLACEHOLDER -f  (詳細: docs/guide/kimi-fallback.md)" >&2
   exit 1
 }
 

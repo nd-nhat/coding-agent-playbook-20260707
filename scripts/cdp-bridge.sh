@@ -14,7 +14,7 @@
 # 本 script は host 側で **実 profile と別の使い捨て profile** を強制し、実 profile を拒否する。
 # bridge した Chrome は「agent のブラウザ」とみなし、**実アカウントでログインしない**こと。
 # 経路は loopback (127.0.0.1) 限定 + tight な policy allow (localhost:<port> のみ)。
-# 詳細と背景は docs/headful-bridge.md 参照。
+# 詳細と背景は docs/guide/headful-bridge.md 参照。
 set -euo pipefail
 
 PORT="${CDP_PORT:-9222}"            # host Chrome の remote-debugging port
@@ -570,7 +570,7 @@ options (env でも可): --port N (=CDP_PORT,9222) / --relay-port N (=CDP_RELAY_
          --box NAME (=CDP_BOX; host up で relay 自動起動 + egress を絞る) / --profile-dir DIR (=CDP_PROFILE_DIR)
          --no-connect (host up で box relay 自動起動を抑止)
 SECURITY: 実 Chrome profile は使わない。bridge した Chrome に実アカウントでログインしない。
-詳細: docs/headful-bridge.md
+詳細: docs/guide/headful-bridge.md
 USAGE
 }
 

@@ -22,7 +22,7 @@ project 本体（`stage/*`）でも、受講者が日常的に叩く恒久 tooli
 
 運用保守・バグ修正フェーズは **local(HOTL) 調査** と **cloud(HOTU) 無人修正** の 2 軸を持ち、この 2 つが本 dir の
 observe/ と sre-bedrock/ に対応する。**どの stage をどのシナリオで開くか**の対応（`06/07` = local observe 調査、
-`08` = cloud fixer pipeline 実演）は講義運営の関心事なので [../docs/instructor.md](../docs/instructor.md)「ステージ」に
+`08` = cloud fixer pipeline 実演）は講義運営の関心事なので [../docs/instructor/README.md](../docs/instructor/README.md)「ステージ」に
 単一ソースで置く（ここでは重複させない）。本 dir 側の関心事＝**各 artifact が今どこまで動くか**は次の通り:
 
 - **observe/** — 恒久 runbook。実演には調査対象の deploy 済み環境（CloudWatch にログが出ている状態）が要る。

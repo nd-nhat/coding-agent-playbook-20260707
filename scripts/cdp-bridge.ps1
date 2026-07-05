@@ -14,7 +14,7 @@
 # The host side FORCES a dedicated throwaway profile and REFUSES the real profile.
 # Treat the bridged Chrome as agent-controlled: do NOT log into real accounts in it.
 # Path is loopback-only (127.0.0.1) with a tight policy allow (localhost:<port>).
-# See docs/headful-bridge.md.
+# See docs/guide/headful-bridge.md.
 param(
   [Parameter(Position=0)][string]$Verb = "help",
   [string]$Port,
@@ -589,7 +589,7 @@ function Usage {
   Write-Host "           -Box NAME (=CDP_BOX; host up auto-starts relay + scopes egress) / -ProfileDir DIR (=CDP_PROFILE_DIR)"
   Write-Host "           -NoConnect (host up: do not auto-start the box relay)"
   Write-Host "  SECURITY: never use the real Chrome profile; do not log into real accounts in the bridged Chrome."
-  Write-Host "  details: docs/headful-bridge.md"
+  Write-Host "  details: docs/guide/headful-bridge.md"
 }
 
 switch ($Verb) {

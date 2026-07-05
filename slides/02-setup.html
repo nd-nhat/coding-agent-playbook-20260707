@@ -44,55 +44,77 @@
 
 ---
 
-## 事前に用意するアカウント
+## STEP 1: repo を用意
 
-- **Docker** アカウント（`sbx login` で使用）
-- **Anthropic** — Claude サブスク（Pro/Max）または API key
-- **OpenAI** — ChatGPT サブスク（codex のレビューで使用）
-- **GitHub** — fine-grained PAT を発行できること
+- **fork** して clone（**git 2.48+**）
+- 設定は repo 同梱 — **clone するだけで揃う**
 
----
-
-## 前提（host に用意するツール）
-
-- Docker + `sbx` CLI v0.31+（[Docker Sandboxes](https://docs.docker.com/ai/sandboxes/)。`sbx version` で確認。サブスク認証の自動 provision は v0.34.0+）
-- git 2.48+
-- `claude` CLI（host session で claude を回す場合のみ。box 内 claude は image 同梱）
-- 設定は repo に同梱 — **clone するだけで揃う**（個人の `~/.claude` に依存しない）
+<span class="subtle">2.48+ は box 内 worktree（`--relative-paths`）に必須。fork 時は "Copy the `main` branch only" を**外す** — 講義は `stage/*` ブランチを使う</span>
 
 ---
 
-## 初回セットアップ（マシンに 1 回）
+## STEP 2: Docker Sandboxes を入れて `sbx login`
 
-- repo を clone（PR フローまで自分で体験するなら **fork** して自分のコピーを clone。fork 時は "Copy the `main` branch only" を**外す** — 講義は `stage/*` ブランチを使う）
-- `sbx login` — Docker アカウント認証
-- secret を 2 種登録（github / openai。次スライド）
-
----
-
-## secret 登録（box を立てる前に）
-
-- github: fine-grained PAT（対象 repo 限定 / 権限 5 種）→ `sbx secret set -g github`
-- openai: `sbx secret set -g openai --oauth`（browser で ChatGPT 認証）
-- anthropic はサブスク（Pro/Max）なら**登録不要** — 最初の box で `/login` するだけ（v0.34.0。以降の box は自動 provision）。API 課金なら API key を `sbx secret set -g anthropic`（setup-token を登録すると `claude -p` が壊れる — `docs/setup.md`）
-- **後から登録すると box の再作成が必要**（secret は box 作成時にのみ反映）
-- PAT の発行手順・権限の根拠は `docs/setup.md` 参照
+- [Docker Sandboxes](https://docs.docker.com/ai/sandboxes/) を install（`sbx` CLI。v0.34.0+ 推奨）
+- `sbx login` で Docker アカウント認証
 
 ---
 
-## 初回の立ち上げ
+## STEP 3: `sbx secret set -g github`
 
-- `bash scripts/dev.sh` — dev box が立ち、その中で claude が起動する
-- 初回は image build 込みで約 5 分（以降は数秒）
+PR 操作用の **fine-grained PAT**（**対象 repo に限定**して発行）をプロンプトに貼る。ON にする権限:
+
+| 権限 | アクセス | 用途 |
+|------|---------|------|
+| Contents | Read/Write | `git push` |
+| Pull requests | Read/Write | `gh pr create` / merge |
+| Issues | Read/Write | `gh issue create` |
+| Actions | Read | `gh pr checks`（CI） |
+| Commit statuses | Read | `gh pr checks`（status） |
+
+<span class="subtle">Metadata: Read は自動付与。**secret は box 作成時にのみ反映** → 次の box 起動より前に登録。理由・発行手順は `docs/guide/setup.md`</span>
+
+---
+
+## STEP 4: `sbx secret set -g openai --oauth`
+
+- browser で **ChatGPT 認証**（サブスク経路推奨）
+- codex の second opinion（`/a2a-review` / `/pr-codex-ci`）が使う
+
+<span class="subtle">これも box 作成前に。**サブスク経路**なら github / openai の 2 種だけ（API 課金は anthropic も必要 → STEP 6）</span>
+
+---
+
+## STEP 5: `bash scripts/dev.sh`
+
+- dev box が立ち、その中で claude が起動する
+- 初回は image を**自動 build**（約 5 分・以降は数秒）。作り直し・更新は `bash scripts/build-image.sh`
 - codex reviewer（`cdx-<NAME>` pair）も自動で立つ — 手動セットアップ不要
-- Windows は対応する `.ps1`（`powershell -ExecutionPolicy Bypass -File scripts/dev.ps1`）
-- 困ったら `bash scripts/check-setup.sh`（環境 doctor）
+
+<span class="subtle">Windows は `powershell -ExecutionPolicy Bypass -File scripts/dev.ps1`</span>
+
+---
+
+## STEP 6: 箱の中で `/login`（Claude 認証）
+
+- サブスク（Pro/Max）なら **secret 登録は不要** — 最初の box で `/login` するだけ（v0.34.0）
+- 以降の box は自動 provision
+- API 課金なら `/login` の代わりに API key を `sbx secret set -g anthropic`（host secret なので **STEP 5 の前**に登録 — 後からだと box 再作成が要る）
+
+<span class="subtle">`setup-token` を登録すると `claude -p` が壊れる（`docs/guide/setup.md`）</span>
+
+---
+
+## 詰まったら: `bash scripts/check-setup.sh`
+
+- 環境 doctor — **前提ツール（git / sbx / Docker）/ secret / image** をまとめて点検
+- 各チェックが対処法を出すので、該当 STEP をやり直す
 
 ---
 
 <!-- .slide: class="title-slide" -->
 ## 次のフェーズへ
-**[壁打ち →](02-brainstorm.html)**
+**[設計 →](03-design.html)**
         </textarea>
       </section>
     </div>

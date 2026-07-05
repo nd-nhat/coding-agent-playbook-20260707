@@ -2,7 +2,7 @@
 # claude-kimi: Claude Code CLI を Moonshot (Kimi) の Anthropic 互換 endpoint で起動する
 # fallback wrapper。Anthropic API 障害時に skill / MCP / 開発フローを保ったまま
 # model backend だけ Kimi に差し替える。経路の全体像・box での使い方・注意点は
-# docs/kimi-fallback.md 参照。
+# docs/guide/kimi-fallback.md 参照。
 set -euo pipefail
 
 if [ -z "${MOONSHOT_API_KEY:-}" ]; then

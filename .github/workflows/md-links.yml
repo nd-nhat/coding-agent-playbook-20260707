@@ -1,0 +1,10 @@
+# 他の lint 系と同じく private repo の Actions 消費を避けて workflow_dispatch only (README.md 参照)。
+name: md-links
+on:
+  workflow_dispatch:
+jobs:
+  check-links:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: node scripts/internal/check-links.js

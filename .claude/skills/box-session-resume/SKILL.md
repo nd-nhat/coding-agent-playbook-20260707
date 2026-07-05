@@ -158,7 +158,7 @@ bash scripts/internal/box-session-resume.sh <session_id> <dest>   # source=auto 
 
 | 問題 | 対処 |
 |------|------|
-| `sbx: command not found` (host) | docs/box-ops.md に従って sbx をインストール |
+| `sbx: command not found` (host) | rules/box-ops.md に従って sbx をインストール |
 | script を box 内で直接叩いて `exit 5` | 本 skill を使えば box では自動で host-delegate される。raw script を box で叩かない。host shell なら `echo $SANDBOX_VM_ID` が空であること |
 | box-delegate で ans が来ない | host で `/box-session-resume-grant <box-name>` を実行したか確認 (host は user-trigger)。`TaskList` で Monitor 生存確認。長引けば `TaskStop` |
 | `transcript not found` (exit 3) | session_id typo か source box 停止。`sbx ls` / `ls $HOME/.claude/projects/*/` |

@@ -94,7 +94,7 @@ box-native `/pr-codex-ci` skill ([.claude/skills/pr-codex-ci/SKILL.md](../.claud
     - local + remote 両 gate clean = orchestrator の最終 merge-ready 報告
     - 自走不能事象 = 「自走不能時の HOTL escalate」セクションの形で停止（`/pr-review-respond` の採否判断不能・修正不能、および check が terminal 化しない CI hang も含む）
 
-merge には GitHub ruleset の gate があり、**PR の review thread（Copilot/qodo 等）を全て resolve するまで merge できない**（`required_review_thread_resolution`。設定詳細は [docs/repo-settings.md](../docs/repo-settings.md)）。**orchestrator (`/pr-codex-ci` / `/pr-ci`) と `/pr-review-respond` は責務が異なる別 skill** — 前者は claude が能動的に呼ぶ codex second opinion (transport は box A2A or host CLI)、後者は PR に付いた他者 review の確認 → 採否 → resolve。責務分離は維持しつつ chain は orchestrator step 5 で skill 内強制起動する形を採る（規範ベースの chain だと「local gate clean = merge-ready」と読み違えて停止する事故が発生したため、skill 自身に chain 責務を持たせる）。
+merge には GitHub ruleset の gate があり、**PR の review thread（Copilot/qodo 等）を全て resolve するまで merge できない**（`required_review_thread_resolution`。設定詳細は [docs/instructor/repo-settings.md](../docs/instructor/repo-settings.md)）。**orchestrator (`/pr-codex-ci` / `/pr-ci`) と `/pr-review-respond` は責務が異なる別 skill** — 前者は claude が能動的に呼ぶ codex second opinion (transport は box A2A or host CLI)、後者は PR に付いた他者 review の確認 → 採否 → resolve。責務分離は維持しつつ chain は orchestrator step 5 で skill 内強制起動する形を採る（規範ベースの chain だと「local gate clean = merge-ready」と読み違えて停止する事故が発生したため、skill 自身に chain 責務を持たせる）。
 
 ## なぜ hook でなく規範（CLAUDE.md + 本 rule + skill）か
 

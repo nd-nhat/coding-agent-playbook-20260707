@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>仕上げ（並列 issue 処理） | Coding Agent Playbook</title>
+  <title>並列開発 | Coding Agent Playbook</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.2.1/dist/reveal.css" integrity="sha384-tK61vs+AeByBmiQ/i6CLgp/PbaaoB/k7M4J5mlX70GVtBPGUk5avjbXhSwhsf3fS" crossorigin="anonymous">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.2.1/dist/theme/white.css" integrity="sha384-flndleNngtsjA21lEvW9JpgOND8agbgm+1EI+KQFbNa0OcOWGydVQbh+G3H2E1dI" crossorigin="anonymous">
   <style>
@@ -40,24 +40,45 @@
       <section data-markdown data-separator="\r?\n---\r?\n">
         <textarea data-template>
 <!-- .slide: class="title-slide" -->
-# 仕上げ（並列 issue 処理）
+# 並列開発
+
+<span class="subtle">`stage/04-mvp`</span>
 
 ---
 
 ## このフェーズでやること
 
-- **自分の MVP から地続き**で進む（追いつくなら `git switch stage/04-mvp`）
+- **自分の MVP から地続き**で進む
 - 改善点を **issue 化 → 並列で潰す**
-- issue は **file が重ならない粒度**で束ねる（並列 conflict 回避）
-- 到達点: issue を捌いて磨いた MVP — 保守フェーズの土台
 
 ---
 
-## 並列のさせ方
+## パターン①: issue ごとに claude を立てる（repo 標準）
 
-- ① box を issue ごとに立てる — **1 box 1 issue**（並列度 = box 数）
-- ② ultracode で 1 session から並列 agent（Claude Code harness 利用時）
-- 注意: stage は default branch でないため `Closes #N` で自動 close されない（手動 close）
+- issue ごとに `bash scripts/dev.sh` で box を起動 — **1 box 1 issue**（並列度 = box 数）
+- box の claude に **issue 番号か URL を貼って「やって」だけ** — worktree・PR 化・後続は開発フロー規約で自走する
+- 各 box が実装 → PR → `/pr-codex-ci` → merge-ready まで独立に回り、**人間は merge 判断だけ**
+
+---
+
+## パターン②: ultracode でまとめて捌く（発展）
+
+- issue 一覧を渡すと **issue ごとに agent を fan-out** — ①の「立てて貼る」の繰り返しが 1 コマンドに畳める:
+  - 「#92〜#97 を ultracode で並列にやって」
+- 各 agent は独立 worktree で fix（隔離は harness が自動で満たす）
+
+<span class="subtle">ultracode / Workflow は **Claude Code harness の機能**（repo 同梱ではない）。標準は①</span>
+
+---
+
+## 動作確認（並列で app を見分ける）
+
+- 1 box なら **dev port を publish してそのまま開く**（Traefik 不要）
+- box が並ぶと port 番号の暗記が破綻 → **Traefik（任意）** で名前付き URL に:
+  - `bash scripts/dev.sh route up`（一度）→ `bash scripts/dev.sh route add <box>`
+  - → `web.<branch>.<repo>.localhost` で box ごとにブラウザで開ける
+
+<span class="subtle">:80 に共有 Traefik が居る環境は `route add` が自動検出して相乗り（`up` 不要）。詳細は `docs/guide/parallel.md`</span>
 
 ---
 
