@@ -77,6 +77,10 @@ if command -v sbx >/dev/null 2>&1; then
     ng "sbx CLI version 取得失敗" "'sbx version' の出力形式が想定外: $(sbx version 2>&1 | head -1)"
   elif awk -v cur="$ver" -v req="0.31.0" 'BEGIN { split(cur, c, "."); split(req, r, "."); for (i = 1; i <= 3; i++) { ci = c[i] + 0; ri = r[i] + 0; if (ci > ri) exit 0; if (ci < ri) exit 1 } exit 0 }'; then
     ok "sbx CLI v$ver (>= 0.31)"
+    # サブスクの「最初の box で /login → 以降自動 provision」は v0.34.0+ のみ (v0.33 以前は box ごと /login か API key 経路 — README §1)
+    if ! awk -v cur="$ver" -v req="0.34.0" 'BEGIN { split(cur, c, "."); split(req, r, "."); for (i = 1; i <= 3; i++) { ci = c[i] + 0; ri = r[i] + 0; if (ci > ri) exit 0; if (ci < ri) exit 1 } exit 0 }'; then
+      warn "sbx v$ver はサブスク /login の自動 provision (v0.34.0+) 非対応" "box ごとに /login するか API key 経路にする (README §1)。v0.34.0+ への upgrade 推奨"
+    fi
   else
     ng "sbx CLI v$ver (>= 0.31 が必要)" "sbx を upgrade してください: https://docs.docker.com/ai/sandboxes/"
   fi
@@ -97,12 +101,19 @@ SECRETS=$(sbx secret ls -g 2>/dev/null)
 has_secret() {
   printf '%s\n' "$SECRETS" | awk -v target="$1" 'NR > 1 && $1 == "(global)" { for (i = 2; i <= NF; i++) if ($i == target) { found = 1; exit } } END { exit !found }'
 }
+# SECRET 列が "(oauth configured)" の行は /login seeding / --oauth 由来 (API key / setup-token 登録はマスク表示になる)
+secret_is_oauth() {
+  printf '%s\n' "$SECRETS" | awk -v target="$1" 'NR > 1 && $1 == "(global)" && index($0, "(oauth configured)") { for (i = 2; i <= NF; i++) if ($i == target) { found = 1; exit } } END { exit !found }'
+}
 
-# 3. anthropic secret (global) 登録済み (有効性は box 起動時に検証される)
-if has_secret anthropic; then
-  ok "sbx secret 'anthropic' (global) 登録済 (OAuth 有効性は bash scripts/dev.sh 起動時に検証)"
+# 3. anthropic secret (global): サブスク (Pro/Max) は未登録が正 (最初の box で /login すれば v0.34.0 で自動 provision)。
+#    登録が要るのは API 課金経路のみで、サブスクで setup-token を登録すると apikey mode 化で claude -p が壊れる (docs/guide/setup.md「認証 secret の詳細」)
+if secret_is_oauth anthropic; then
+  ok "sbx secret 'anthropic' (global) は oauth configured (/login seeding 済み。sbx secret rm しないこと — 既存 box の認証が壊れる)"
+elif has_secret anthropic; then
+  warn "sbx secret 'anthropic' (global) に API key / setup-token 型が登録済 — API key 経路なら OK" "サブスク (Pro/Max) の場合は apikey mode 化で 'claude -p' が壊れる: sbx secret rm -g anthropic して box を作り直し、最初の box で /login (要 sbx v0.34.0+。docs/guide/setup.md)"
 else
-  ng "sbx secret 'anthropic' (global) 未登録" "claude setup-token | sbx secret set -g anthropic (README §1-2)"
+  ok "sbx secret 'anthropic' (global) 未登録 (サブスクは最初の box で /login — 自動 provision は sbx v0.34.0+。API 課金なら sbx secret set -g anthropic に API key)"
 fi
 
 # 4. github secret (global) 登録済み (有効性は §8 の runtime probe で検証)
@@ -197,12 +208,12 @@ elif [ "$IMAGE_PRESENT" = 1 ] && [ "$GITHUB_SECRET_PRESENT" = 1 ]; then
       trap 'sbx rm -f "'"$probe_box"'" >/dev/null 2>&1 || true' EXIT
       # (a) Pull requests RO + Repository access (gh pr create が後で書き込み権限 fail することは destructive probe 無しでは検出不能なので RO で代替し、workshop 序盤の gh pr create での発覚を許容)
       if sbx exec "$probe_box" gh pr list -R "$repo_slug" --limit 1 >/dev/null 2>&1; then
-        # (b) Actions RO (/pr-codex-ci の gh pr checks 経路で必須。docs/setup.md が明示要求)
+        # (b) Actions RO (/pr-codex-ci の gh pr checks 経路で必須。docs/guide/setup.md が明示要求)
         if sbx exec "$probe_box" gh api "repos/$repo_slug/actions/runs?per_page=1" >/dev/null 2>&1; then
           ok "github PAT が valid ($repo_slug の Pull requests RO + Actions RO + Repository access OK)"
         else
           err=$(sbx exec "$probe_box" gh api "repos/$repo_slug/actions/runs?per_page=1" 2>&1 | tail -3 | tr '\n' ' ' | sed 's/  */ /g')
-          ng "github PAT の Actions: Read-only scope 不足 (/pr-codex-ci の gh pr checks で fail する)" "PAT permissions に Actions: Read-only を追加 (docs/setup.md)。詳細: $err"
+          ng "github PAT の Actions: Read-only scope 不足 (/pr-codex-ci の gh pr checks で fail する)" "PAT permissions に Actions: Read-only を追加 (docs/guide/setup.md)。詳細: $err"
         fi
       else
         err=$(sbx exec "$probe_box" gh pr list -R "$repo_slug" --limit 1 2>&1 | tail -3 | tr '\n' ' ' | sed 's/  */ /g')

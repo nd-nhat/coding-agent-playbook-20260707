@@ -10,10 +10,10 @@
 
 ## なぜ built-in claude agent + codex mixin か
 
-secret の proxy 注入（トークンを box に入れず host で auth header を注入）は **agent positional が Docker built-in agent に解決される時だけ** sbx が host 側で provisioning する。custom (`kind: sandbox`) agent では claude / codex とも secret の placeholder が登録されず proxy 注入が効かない（実機検証で確認）。なお **anthropic で proxy 注入の対象になるのは API key のみ**で、サブスク (Pro/Max) は proxy 注入ではなく箱内 `/login`、または `claude setup-token` を `sbx secret set` に登録して box に自動 provision させる経路 C で認証する（いずれもトークンは box 内に入る。後述「認証」）。そこで:
+secret の proxy 注入（トークンを box に入れず host で auth header を注入）は **agent positional が Docker built-in agent に解決される時だけ** sbx が host 側で provisioning する。custom (`kind: sandbox`) agent では claude / codex とも secret の placeholder が登録されず proxy 注入が効かない（実機検証で確認）。なお **anthropic で proxy 注入の対象になるのは API key のみ**で、サブスク (Pro/Max) は proxy 注入ではなく **どれか 1 box で箱内 `/login`** して認証する。`/login` の OAuth token 応答を sbx の proxy が intercept して実トークンを host store に保持し、以降の新規 box には sentinel credentials が自動 provision される（v0.34.0 時点。実トークンは box に入らず sentinel のみ。後述「認証」）。そこで:
 
 - **base image は中立な `shell-docker`**（`claude-code-docker` を base にすると claude が特権化する）。claude / codex / chrome を image に bake し、`-t` で渡す。
-- **agent は built-in `claude`**（`sbx run claude`）。built-in agent だと sbx が secret を proxy 注入できる（**API key** は host で auth header を注入しトークンは box に入らない）。**サブスク (Pro/Max) は proxy 注入ではなく箱内 `/login` か setup-token の secret 登録（経路 C）で認証し、その OAuth トークンは box 内に保存される**（後述「認証」）。
+- **agent は built-in `claude`**（`sbx run claude`）。built-in agent だと sbx が secret を proxy 注入できる（**API key** は host で auth header を注入しトークンは box に入らない）。**サブスク (Pro/Max) は proxy 注入ではなく、初回にどれか 1 box で `/login` すれば以降の新規 box は sentinel credentials が自動 provision される**（v0.34.0 時点。実トークンは box に入らず sentinel のみ。後述「認証」）。
 - **codex は mixin（`playbook-kit/`）で egress だけ開け**、サブスク認証は **host の `~/.codex/auth.json` を box に転送**して codex に実トークンを直接渡す（後述「codex のサブスク認証」）。codex の proxy 注入は built-in codex agent 限定で claude box では効かないため。
 - `shell-docker` は共通 base `shell` に **Docker Engine (DinD) を足した variant**。playbook は箱内 compose を使う（[ADR](../docs/decisions/parallel-hotl-execution.md) 受け入れ項目）ため `-docker` 系統が必要。DinD は sbx が `-docker` 系統に対し privileged microVM + block volume + dockerd 自動起動を用意するもので、**素の `shell` に手で docker を足しても付かない**。
 
@@ -51,43 +51,34 @@ box 内の claude は既定モデルを **Opus** にしてある（image に `EN
 
 ### claude
 
-claude には **3 経路**がある。サブスク (Pro/Max) を**複数 box / 並列**で回すなら **経路 C（setup-token、per-box 操作なしで全 box 自動認証）が推奨**。単発 box の手早い起動なら経路 B（箱内 `/login`）。トークンを box に入れたくない (最小化) なら経路 A（API key）。経路 B / C はトークンが box 内に入る。
+claude は **2 経路**（v0.34.0 時点）。**推奨はサブスク (Pro/Max)** — 初回にどれか 1 box で `/login` すれば、以降の新規 box は per-box 操作ゼロで自動認証される。サブスクを持たない / API 課金にしたいなら **API key**。**どちらも実トークンは box 内に入らない**（host store / host keychain が保持し、box には sentinel のみ）。
 
-#### 経路 A: API key（proxy 注入・トークンは box に入らない）
+#### 推奨: サブスク (Pro/Max)（初回 1 box で `/login`・以降自動 provision・token-not-in-box）
 
-```bash
-sbx secret set -g anthropic   # API key (sk-ant-...) を貼る
-```
-
-built-in claude agent が API key を proxy 注入する。secret は host keychain に保存され、box 内は sentinel 値のみ（`SBX_CRED_ANTHROPIC_MODE=apikey`、実トークンは box に入らない）。
-
-#### 経路 B: サブスク (Pro/Max)（箱内 `/login`・トークンは box 内）
-
-**`sbx secret set -g anthropic --oauth` の対話 OAuth フローは使えない**（`anthropic OAuth cannot be started from sbx secret set; sign in from inside the Claude sandbox` で拒否、v0.33.0 で確認）。サブスクを secret 登録して全 box 自動認証したい場合は `claude setup-token` のトークンを貼る経路 C を使う。単発 box は箱内で `/login` する:
+複数 box を並列で回しても、サブスク認証は **最初の 1 回だけ**。どれか 1 box で `/login` すると、その OAuth token 応答（`platform.claude.com/v1/oauth/token`）を sbx の proxy が intercept して **実トークンを host 側 store に保持**し、box には sentinel 値の `~/.claude/.credentials.json` だけを残す。**以降 `sbx create` / `sbx run` した新規 box は作成時に sentinel credentials が自動 provision され、`/login` も cp も無しでサブスクとして通る**（refresh も proxy が sentinel を実トークンに差し替えて代行する）。
 
 ```bash
-sbx run <box>      # claude が起動したら /login (claude.ai OAuth、対話)
+sbx run <box>      # claude が起動したら /login (claude.ai OAuth、対話。最初の 1 box だけ)
 ```
 
-完了すると OAuth トークンは **box 内 `~/.claude/.credentials.json` に保存される**（codex の auth.json と同じく box 内に実トークンが置かれる）。経路 A と違い token-not-in-box の性質は無く、下記 codex と同じ security トレードオフが claude にも生じる。
+- **per-box の操作ゼロ**: 2 個目以降の box は `/login` も credentials の手動 cp も不要
+- **token-not-in-box**: box にあるのは sentinel のみで、実トークンは host store が保持し proxy が API call 時に差し替える（下記 API key 経路と同じく box に実トークンが入らない。旧版が経路 B/C の欠点として書いていた「OAuth トークンが box 内に保存される」性質は v0.34.0 で解消）
+- **host store は box より長命**: `/login` した box を含め box を全部消しても host store は残り、次に作る box に provision され続ける（login した box 自体の削除は他 box の provisioning に影響しない）
+- サブスク維持（API key と違い API 課金にならない）
 
-#### 経路 C: サブスク + setup-token（secret 登録で全 box 自動認証・**複数 box / 並列で推奨**）
+> ⚠️ **サブスクを使うなら anthropic を `sbx secret set` に登録しない**（v0.34.0）。`claude setup-token` (`sk-ant-oat01-...`) を貼っても **apikey 型の service secret として登録**され（`sbx secret ls` はマスク表示になる）、新規 box は `SBX_CRED_ANTHROPIC_MODE=apikey` + apiKeyHelper 注入になって proxy が x-api-key として注入するため、`claude -p` が「Invalid API key · Fix external API key」で失敗する。サブスクの全 box 自動認証は上記 `/login` seeding が担うので、secret 登録は不要（むしろ有害）。
+>
+> ℹ️ **旧手順から移行する場合**: 既に `sbx secret set -g anthropic` で setup-token / API key を登録済みなら、単に「登録しない」だけでは移行にならない（残った secret が新規 box を apikey mode に固定し続ける）。`/login` seeding に移る前に **`sbx secret rm -g anthropic` で削除してから box を作り直し**、最初の box で `/login` する。この rm は seeding 開始**前**に行うこと — 一度 `/login` seeding を回した後の rm は既存 box の認証を壊す（後述「落とし穴」）。
 
-経路 B の `/login` は box ごとに対話が要る。複数 box を並列で回すなら、**サブスクの長期トークンを一度 secret に登録**しておけば、以降の新規 box は作成時に認証が自動で入る:
+#### 代替: API key（proxy 注入・token-not-in-box）
 
 ```bash
-claude setup-token             # host で 1 回 (対話・ブラウザ)。長期トークン sk-ant-oat01-... が出る
-sbx secret set -g anthropic    # 出たトークンを貼る (sbx は sk-ant-oat... を OAuth として登録する)
+sbx secret set -g anthropic   # API key (sk-ant-api...) を貼る
 ```
 
-`sbx secret ls` が `anthropic (oauth configured)` を示せば登録完了。以降 `sbx create` / `sbx run` した box は **作成時に `~/.claude/.credentials.json` が自動生成**され、`/login` も cp も無しで claude が通る（実機確認: oauth secret 登録後の新規 box で `claude -p` が認証成功）。
+built-in claude agent が API key を proxy 注入する。secret は host keychain に保存され、box 内は sentinel 値のみ（`SBX_CRED_ANTHROPIC_MODE=apikey`、実トークンは box に入らない）。サブスクでなく API 課金にする / サブスクを持たない場合に使う。
 
-- **per-box の操作ゼロ**: 経路 B の box ごと `/login` も、credentials の手動 cp も不要
-- **トークンは box 内**: 自動生成される credentials は box の filesystem に入る（経路 B と同じ security トレードオフ）。box の access token は短命（~数時間）で refresh され、土台の長期 setup-token が secret（host keychain）側に残る
-- サブスク維持（経路 A の API key と違い API 課金にならない）
-
-> ⚠️ `sbx secret set -g anthropic` に貼るのは **setup-token (`sk-ant-oat01-...`)**。API key (`sk-ant-api...`) を貼ると経路 A（apikey mode・proxy 注入）になる。`--oauth` フラグは anthropic では使えない（経路 B 参照）。
-> ⚠️ **未検証**: 多数 box での長時間並列における refresh token のローテーション挙動はストレステストしていない。setup-token は box ごとに独立 mint される想定だが、並列で 401 が出る場合は box ごとに別アカウントか経路 A（API key）にする。
+> ℹ️ `sbx secret set --oauth` フラグは v0.34.0 では **openai 専用**（`sbx secret set --help` に "(openai/global only)" と明記）。anthropic には使えない（サブスクは上記 `/login` seeding で認証する）。
 
 ### codex（サブスク、auth.json 転送）
 
@@ -108,7 +99,7 @@ codex は転送した auth.json の実トークンで `chatgpt.com/backend-api/c
 
 > ⚠️ **並列 box の制約**: 同じ `auth.json` を複数 box に転送して並走させると、ある box の token refresh で OAuth provider が **refresh token を rotate** し、他 box / host 側の古い refresh token が invalid になって 401 になりうる。codex を安定して並列実行したい場合は box ごとに別アカウント、または下記の API key 経路にする。
 
-> ⚠️ **security トレードオフ**: auth.json 転送は **codex の実トークン（refresh token 含む）を box の filesystem に置く**。sbx の secret-proxy 分離（secret を box に入れない）を一段緩めるため、乗っ取られた agent がトークンを読み出し/exfil しうる（→ ChatGPT サブスクアカウントへの持続的アクセス）。microVM の hard boundary 自体は不変。claude を**経路 A（API key）**にすれば claude のトークンは box に入らず、box 内の実トークンは codex の 1 つに最小化される（**サブスク経路 B（`/login`）/ C（setup-token）だと claude のトークンも box 内に入る**ため最小化は効かない）。疑わしい挙動時は box 内に置いた実トークンを rotate する: codex は host で ChatGPT を sign out / 再 login、claude をサブスク経路で使っていれば claude.ai でセッションを revoke し、**既存の各 box の `~/.claude/.credentials.json` を破棄（box を作り直す）する**（host secret の更新は今後 provision される box にしか効かず、既存 box に配られたトークンは別途無効化が要る。経路 C なら host で `claude setup-token` を再発行して古いトークンを provider 側で失効させたうえで secret を差し替える ※ 再発行で既存 box 分が一括失効するかは未検証）。課金を分離して安全側に倒すなら codex を OpenAI **API key** にする手もある（その場合は mixin に openai の `serviceDomains`/`serviceAuth` を足して `OPENAI_API_KEY` を proxy 注入する。auth.json 転送は不要になる）。
+> ⚠️ **security トレードオフ**: auth.json 転送は **codex の実トークン（refresh token 含む）を box の filesystem に置く**。sbx の secret-proxy 分離（secret を box に入れない）を一段緩めるため、乗っ取られた agent がトークンを読み出し/exfil しうる（→ ChatGPT サブスクアカウントへの持続的アクセス）。microVM の hard boundary 自体は不変。**claude 側は API key・サブスク (`/login`) いずれも token-not-in-box（v0.34.0 時点。box には sentinel のみ、実トークンは host store / host keychain 側）なので、box の filesystem に置かれる実トークンは codex の auth.json ひとつに絞られる**。疑わしい挙動時は、codex を host で ChatGPT を sign out / 再 login して box 内 auth.json を rotate し box を作り直す。claude はサブスクなら claude.ai 側でセッションを revoke（box に実トークンが無いので box 側 credentials の破棄は不要）、API key なら key を rotate すれば足りる。課金を分離して安全側に倒すなら codex を OpenAI **API key** にする手もある（その場合は mixin に openai の `serviceDomains`/`serviceAuth` を足して `OPENAI_API_KEY` を proxy 注入する。auth.json 転送は不要になる）。
 
 > ⚠️ global secret（`-g`）は **box 作成時に反映**される。set/変更したら box を作り直す。
 
@@ -145,7 +136,7 @@ sbx run box2
 
 - `--clone` = 箱内で repo を private clone（各 box が独立した作業コピーを持ち、並列で衝突しない）。各 box の commit は host 側の `sandbox-<name>` git remote から回収できる
 - 同一 repo の `--clone` box は複数並存できる
-- claude サブスクを並列で使うなら **経路 C（setup-token を secret 登録）が楽**: 各 box が作成時に credentials を自動取得するので box ごとの操作が要らない。経路 B（`/login`）を使う場合は box ごとに attach 後 login が要る（「認証」参照）
+- claude サブスクを並列で使うなら **最初の 1 box で `/login` するだけ**（v0.34.0）: 以降の新規 box は作成時に sentinel credentials が自動 provision されるので、box ごとの login も cp も要らない（「認証」参照）
 - codex を使う box ごとに auth.json 転送が要る
 
 ## HOTL 監視（host から箱を覗く）
@@ -173,4 +164,5 @@ published された host `127.0.0.1:<port>` を host の Chrome で開く。`--c
 - **コールド起動の transient**: `stopped` の box を `sbx exec` で叩き起こした直後は egress proxy / 箱内 Docker daemon が温まりきっておらず、最初の数秒は egress timeout や DinD コマンド失敗が出ることがある。温まった後は安定する（恒久的な失敗と区別すること）
 - **egress allowlist**: 箱内 runtime は default-deny + allowlist（`api.anthropic.com` / `**.github.com` / `registry.npmjs.org` / `docker.io` 等は許可、それ以外は proxy が 403 で能動拒否）。codex 用の `chatgpt.com` / `auth.openai.com` は mixin の `network.allowedDomains` で開ける。build は host network で走るため installer の取得には影響しない
 - **nested egress も遮断**: 箱内 Docker で起動した container の直接 egress も VM 境界で遮断され、allowlist を bypass できない
-- **box 内に置かれる実トークン**: codex の auth.json（常に）と、claude をサブスク経路 B（`/login`）/ C（setup-token）で使う場合の `~/.claude/.credentials.json`。上述の security トレードオフ参照。これらは box の filesystem にあるため box を信頼できない入力に晒さない（claude を経路 A の API key にすれば claude 側は box 内に入らない）
+- **box 内に置かれる実トークン**: codex の auth.json（常に）。**claude は API key・サブスク (`/login`) いずれも token-not-in-box（v0.34.0 時点。box には sentinel のみ、実トークンは host store / host keychain 側）** なので、box の filesystem に置かれる実トークンは codex の auth.json ひとつ。上述の security トレードオフ参照。box を信頼できない入力に晒さない
+- **`sbx secret rm -g anthropic` は OAuth store も一緒に消す（v0.34.0）**: `sbx secret rm --help` が "OAuth and/or API key" と明記するとおり、`/login` seeding で保持している既存の全 box 分の sentinel→実トークン マッピングを失わせ、**既存 box の認証が即時に切れる**（次の API call で 401 → box 内 claude が credentials を破棄して「Not logged in · Please run /login」になる）。復旧は box ごとに `/login` し直すか box を作り直す。サブスクを `/login` seeding で回している間は anthropic secret に触らない

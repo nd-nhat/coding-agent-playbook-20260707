@@ -12,6 +12,7 @@ import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
+import * as ecrAssets from 'aws-cdk-lib/aws-ecr-assets';
 
 // build context = リポジトリルート（infra から1つ上）
 const REPO_ROOT = '..';
@@ -31,7 +32,12 @@ export class DiagnosisStack extends Stack {
       desiredCount: 1,
       publicLoadBalancer: false,
       taskImageOptions: {
-        image: ecs.ContainerImage.fromAsset(REPO_ROOT, { file: 'apps/mock/Dockerfile' }),
+        // Fargate (amd64) 向けに build platform を固定 — arm64 host (Apple Silicon) からの
+        // deploy で arm image が push され task が起動不能になるのを防ぐ
+        image: ecs.ContainerImage.fromAsset(REPO_ROOT, {
+          file: 'apps/mock/Dockerfile',
+          platform: ecrAssets.Platform.LINUX_AMD64,
+        }),
         containerPort: 8787,
         environment: { MOCK_PORT: '8787' },
       },
@@ -58,7 +64,10 @@ export class DiagnosisStack extends Stack {
       desiredCount: 2,
       publicLoadBalancer: false, // CloudFront VPC Origin の前提（ALB を public に晒さない）
       taskImageOptions: {
-        image: ecs.ContainerImage.fromAsset(REPO_ROOT, { file: 'apps/api/Dockerfile' }),
+        image: ecs.ContainerImage.fromAsset(REPO_ROOT, {
+          file: 'apps/api/Dockerfile',
+          platform: ecrAssets.Platform.LINUX_AMD64,
+        }),
         containerPort: 8788,
         environment: {
           API_PORT: '8788',

@@ -8,6 +8,7 @@ box の中の claude（chrome-devtools MCP）から、**host の見える Chrome
 
 - 使う: 「host 画面に見えるブラウザを agent に操作させたい」「人がブラウザの様子を見ながら HOTL したい」
 - 使わない: スクショ確認や DOM 取得だけなら **box の headless（既定）** で十分。ブリッジは攻撃面を増やすので必要時のみ。
+- 使わない: **host session** でログイン済み profile の Chrome を運転したいだけなら、本ブリッジではなく [chrome-profile MCP](chrome-profile.md)（あちらはログイン許可の persistent profile / こちらはログイン禁止の使い捨て強制、で別物）。
 
 ## ⚠️ セキュリティ（必読）
 

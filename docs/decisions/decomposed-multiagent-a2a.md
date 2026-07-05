@@ -39,6 +39,7 @@
 - A2A は young spec（churn リスク）。実装は staged にして影響を局所化する。
 - サブスク並列の天井は plan の concurrent session cap（ChatGPT Pro は並列向け価格・ToS 内）。rotation は proxy 注入で box にトークンのコピーを持たないため構造的に回避されるが、持続 refresh の挙動は要観測（spike #2）。
 - **claude 経路 C の token-in-box 残差**: 決定 #1 のとおり claude box には `~/.claude/.credentials.json` が provision されるため、claude box 侵害時に実トークンが exfil されうる（codex の openai OAuth secret は proxy 注入で box 外、こちらだけ非対称に消える）。緩和は claude 側を経路 A（API key proxy 注入）に切り替えれば token-not-in-box にできるが、サブスク維持時は箱内 token を accepted residual とする（[../../sbx/README.md](../../sbx/README.md) の security トレードオフ参照）。
+  - **【2026-07-02 追記・この残差は失効】** sbx **v0.34.0** で claude サブスク認証が変わり（初回どれか 1 box で `/login` → proxy が実トークンを host store に保持、box には sentinel のみ）、**claude サブスクも token-not-in-box** になった。本残差と決定 #1・spike #4 の「経路 C は `~/.claude/.credentials.json` が box 内に provision される」記述は v0.33 時点の挙動で、v0.34 以降は当てはまらない（box 内の実トークンは codex の auth.json のみ）。現行の認証モデルの SoT は [../../sbx/README.md](../../sbx/README.md) 「認証」。ADR 本文は決定時（2026-06-19 / sbx v0.33.0）の記録としてそのまま残す。
 
 ## 検証ゲート (spike) — 結果（2026-06-19 実機検証で通過）
 

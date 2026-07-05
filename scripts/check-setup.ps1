@@ -103,6 +103,10 @@ if ($sbxCmd) {
     try {
       if ([version]$ver -ge [version]"0.31") {
         Write-Ok "sbx CLI v$ver (>= 0.31)"
+        # subscription "/login in the first box, later boxes auto-provision" needs v0.34.0+ (older: per-box /login or API-key route - README section 1)
+        if ([version]$ver -lt [version]"0.34") {
+          Write-Warn "sbx v$ver does not support subscription /login auto-provision (needs v0.34.0+)" "Use per-box /login or the API-key route (README section 1); upgrading to v0.34.0+ is recommended"
+        }
       } else {
         Write-Ng "sbx CLI v$ver (>= 0.31 required)" "Upgrade sbx: https://docs.docker.com/ai/sandboxes/"
       }
@@ -135,21 +139,30 @@ if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
 $secretsRaw = & sbx secret ls -g 2>$null
 $secrets = @($secretsRaw)
 $hasAnthropic = $false
+$anthropicOauth = $false
 $hasGithub = $false
 $hasOpenai = $false
 foreach ($line in $secrets) {
   $cols = ($line -split '\s+') | Where-Object { $_ -ne '' }
   if ($cols.Count -lt 2 -or $cols[0] -ne '(global)') { continue }
   for ($i = 1; $i -lt $cols.Count; $i++) {
-    if ($cols[$i] -ceq 'anthropic') { $hasAnthropic = $true }
+    if ($cols[$i] -ceq 'anthropic') {
+      $hasAnthropic = $true
+      # a "(oauth configured)" SECRET column means /login seeding / --oauth (API-key / setup-token rows show a masked value)
+      if ($line -match '\(oauth configured\)') { $anthropicOauth = $true }
+    }
     if ($cols[$i] -ceq 'github')    { $hasGithub    = $true }
     if ($cols[$i] -ceq 'openai')    { $hasOpenai    = $true }
   }
 }
-if ($hasAnthropic) {
-  Write-Ok "sbx secret 'anthropic' (global) registered (OAuth validity verified when pwsh scripts/dev.ps1 starts)"
+# anthropic: not registered is the expected state on a subscription (/login in the first box auto-provisions
+# later boxes, sbx v0.34.0); registering a setup-token forces apikey mode and breaks 'claude -p' (docs/guide/setup.md)
+if ($anthropicOauth) {
+  Write-Ok "sbx secret 'anthropic' (global) is oauth configured (/login seeding done; do NOT sbx secret rm - it breaks auth in existing boxes)"
+} elseif ($hasAnthropic) {
+  Write-Warn "sbx secret 'anthropic' (global) has an API-key / setup-token entry - fine for the API-key route" "On a subscription (Pro/Max) this forces apikey mode and breaks 'claude -p': run sbx secret rm -g anthropic, recreate boxes, then /login in the first box (needs sbx v0.34.0+; docs/guide/setup.md)"
 } else {
-  Write-Ng "sbx secret 'anthropic' (global) missing" "Run: claude setup-token | sbx secret set -g anthropic (README section 1-2)"
+  Write-Ok "sbx secret 'anthropic' (global) not registered (subscription: /login in the first box, auto-provision needs sbx v0.34.0+; API billing: sbx secret set -g anthropic)"
 }
 if ($hasGithub) {
   Write-Ok "sbx secret 'github' (global) registered"
@@ -251,13 +264,13 @@ if (-not $Quick -and $hasImage -and $hasGithub) {
         # (a) Pull requests RO + Repository access (RW probe would require destructive PR/commit creation; rely on workshop's gh pr create surfacing RW shortfall)
         & sbx exec $probeBox gh pr list -R $repoSlug --limit 1 > $null 2>&1
         if ($LASTEXITCODE -eq 0) {
-          # (b) Actions RO (required by /pr-codex-ci's gh pr checks; docs/setup.md lists it as mandatory)
+          # (b) Actions RO (required by /pr-codex-ci's gh pr checks; docs/guide/setup.md lists it as mandatory)
           & sbx exec $probeBox gh api "repos/$repoSlug/actions/runs?per_page=1" > $null 2>&1
           if ($LASTEXITCODE -eq 0) {
             Write-Ok "github PAT is valid (Pull requests RO + Actions RO + repository access for $repoSlug)"
           } else {
             $errOut = (& sbx exec $probeBox gh api "repos/$repoSlug/actions/runs?per_page=1" 2>&1) -join ' '
-            Write-Ng "github PAT missing Actions: Read-only scope (/pr-codex-ci's gh pr checks will fail)" "Add Actions: Read-only to PAT permissions (docs/setup.md). Detail: $errOut"
+            Write-Ng "github PAT missing Actions: Read-only scope (/pr-codex-ci's gh pr checks will fail)" "Add Actions: Read-only to PAT permissions (docs/guide/setup.md). Detail: $errOut"
           }
         } else {
           $errOut = (& sbx exec $probeBox gh pr list -R $repoSlug --limit 1 2>&1) -join ' '

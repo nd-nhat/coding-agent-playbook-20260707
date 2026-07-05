@@ -31,14 +31,22 @@ try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
 
 $Template = "coding-agent-playbook-sbx"
 $Kit = "./sbx/playbook-kit"
+$KitKimi = "./sbx/playbook-kit-kimi"
 $NameRe = '\A[A-Za-z0-9][A-Za-z0-9-]*\z'
 $AppIdentityMarkerEnv = "APP_IDENTITY_ENABLE"
+# Kimi fallback (for Anthropic outages, runbook: docs/guide/kimi-fallback.md): the marker launches new
+# boxes' claude on the Kimi backend. The placeholder below is a public routing value, not a secret
+# (the proxy swaps it for the real key only in requests to api.moonshot.ai; the key never enters the box).
+$KimiMarkerEnv = "PLAYBOOK_KIMI_ENABLE"
+$KimiMarkerPlaceholder = "playbook-kimi-enable"
+$KimiKeyPlaceholder = "sbx-playbook-kimi-moonshot"
+$KimiKeyHost = "api.moonshot.ai"
 
-# App identity broker enable marker: an sbx custom secret (env $AppIdentityMarkerEnv) scoped to this box
-# (per-box) or to all boxes (global). The value is never read (the host cannot read sbx secret values) -
-# only its presence matters. Enable: sbx secret set-custom <box> --host app-identity.invalid --env APP_IDENTITY_ENABLE --value 1
-function Test-AppIdentityEnabled {
-  param([string]$Name)
+# Marker secret (an sbx custom secret) presence check, scoped to this box (per-box) or to all boxes
+# (global). The value is never read (the host cannot read sbx secret values) - only its presence matters.
+# App identity enable: sbx secret set-custom <box> --host app-identity.invalid --env APP_IDENTITY_ENABLE --value 1
+function Test-MarkerSecretPresent {
+  param([string]$Name, [string]$MarkerEnv)
   # Case-sensitive + exact-field match to mirror the bash awk (PowerShell -eq / -contains are case-insensitive
   # by default, which would cross-match APP_IDENTITY_ENABLE_OLD or a differently-cased box name).
   $lines = & sbx secret ls 2>$null
@@ -48,9 +56,51 @@ function Test-AppIdentityEnabled {
     if ($fields.Count -lt 1) { continue }
     $scope = $fields[0]
     if ($scope -cne '(global)' -and $scope -cne $Name) { continue }
-    if ($fields -ccontains $AppIdentityMarkerEnv) { return $true }
+    if ($fields -ccontains $MarkerEnv) { return $true }
   }
   return $false
+}
+
+function Test-AppIdentityEnabled { param([string]$Name) return (Test-MarkerSecretPresent $Name $AppIdentityMarkerEnv) }
+function Test-KimiEnabled        { param([string]$Name) return (Test-MarkerSecretPresent $Name $KimiMarkerEnv) }
+
+# Whether the Kimi key (a global custom secret with the fixed placeholder) is registered. The placeholder
+# is a public routing value, not a secret (the real key lives in the sbx store, masked on the host).
+# Requires the placeholder AND the target host on the same row: a placeholder registered under a
+# different host would pass through the proxy unreplaced.
+function Test-KimiKeyRegistered {
+  $lines = & sbx secret ls 2>$null
+  if (-not $lines) { return $false }
+  foreach ($line in $lines) {
+    $fields = $line.Trim() -split '\s+'
+    if ($fields.Count -lt 1) { continue }
+    if ($fields[0] -cne '(global)') { continue }
+    if (-not ($fields -ccontains $KimiKeyPlaceholder)) { continue }
+    foreach ($f in $fields) {
+      # The TARGETS column may hold comma-joined hosts; split and compare exactly (a substring
+      # test would falsely accept a different host like notapi.moonshot.ai).
+      foreach ($h in ($f -split ',')) {
+        if ($h -ceq $KimiKeyHost -or $h -ceq "${KimiKeyHost}:443") { return $true }
+      }
+    }
+  }
+  return $false
+}
+
+# Creating a Kimi box without the key registered yields a box whose claude cannot authenticate anywhere
+# (the placeholder is never replaced), so fail closed instead of the fail-open used for the openai skip:
+# there the box still serves its main purpose, here it would not.
+function Invoke-KimiPreflight {
+  param([string]$Name)
+  if (Test-KimiKeyRegistered) {
+    Write-Host "info: box '$Name' will launch on the Kimi backend (kimi-k2.7-code) ($KimiMarkerEnv marker)." -ForegroundColor Cyan
+    return
+  }
+  Write-Host "error: the $KimiMarkerEnv marker is set but the Moonshot API key (custom secret) is not registered (or was registered under a host other than $KimiKeyHost)." -ForegroundColor Red
+  Write-Host "       register: sbx secret set-custom -g --host $KimiKeyHost --placeholder $KimiKeyPlaceholder --value <MOONSHOT_API_KEY>" -ForegroundColor Red
+  Write-Host "       remove marker (global): sbx secret rm -g --placeholder $KimiMarkerPlaceholder -f" -ForegroundColor Red
+  Write-Host "       remove marker (per-box): sbx secret rm $Name --placeholder $KimiMarkerPlaceholder -f  (details: docs/guide/kimi-fallback.md)" -ForegroundColor Red
+  exit 1
 }
 
 # git-common-dir based: resolves to the main checkout root even when invoked from inside a stage worktree.
@@ -884,7 +934,12 @@ function Invoke-Sandbox {
   } else {
     # New sandbox creation: run preflight (rescues missed image build / setup check).
     Invoke-Preflight
-    & sbx run --name $Name claude -t $Template --kit $Kit --clone .
+    if (Test-KimiEnabled $Name) {
+      Invoke-KimiPreflight $Name
+      & sbx run --name $Name claude -t $Template --kit $Kit --kit $KitKimi --clone .
+    } else {
+      & sbx run --name $Name claude -t $Template --kit $Kit --clone .
+    }
   }
   exit $LASTEXITCODE
 }
@@ -935,7 +990,12 @@ function Invoke-Observe {
     & sbx run --name $Name
   } else {
     Invoke-Preflight
-    & sbx run --name $Name claude -t $Template --kit $Kit --clone .
+    if (Test-KimiEnabled $Name) {
+      Invoke-KimiPreflight $Name
+      & sbx run --name $Name claude -t $Template --kit $Kit --kit $KitKimi --clone .
+    } else {
+      & sbx run --name $Name claude -t $Template --kit $Kit --clone .
+    }
   }
   exit $LASTEXITCODE
 }
@@ -1454,6 +1514,9 @@ function Start-DevBox {
   try {
     if ($existing -ccontains $Name) {
       & sbx run --name $Name
+    } elseif (Test-KimiEnabled $Name) {
+      Invoke-KimiPreflight $Name
+      & sbx run --name $Name claude -t $Template --kit $Kit --kit $KitKimi .
     } else {
       & sbx run --name $Name claude -t $Template --kit $Kit .
     }

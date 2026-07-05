@@ -1,13 +1,13 @@
 # 決定記録: box を GitHub App identity で回して human-approval merge gate を機械強制する
 
 **status**: Accepted・機構は実装済み（PR #169 / #170）だが **gate 自体は現状 revert 済み**（PAT fallback 経路との衝突。詳細「残差・未決」参照）。broker / marker toggle は温存し再有効化可能
-**関連**: [../repo-settings.md](../repo-settings.md)（ruleset / gate 設計）/ [../setup.md](../setup.md)（有効化手順）/ [../../rules/box-personas.md](../../rules/box-personas.md)（identity 軸）
+**関連**: [../instructor/repo-settings.md](../instructor/repo-settings.md)（ruleset / gate 設計）/ [../guide/setup.md](../guide/setup.md)（有効化手順）/ [../../rules/box-personas.md](../../rules/box-personas.md)（identity 軸）
 
 ## 背景
 
 box-primary model は sbx microVM 内で claude/codex を YOLO で回す。今は sbx proxy が **user の fine-grained PAT を注入**するため、box は **user 本人 (owner) として** push / PR する。ここに 2 つの問題がある。
 
-- **P1（gate が機構化できない）**: [../repo-settings.md](../repo-settings.md) の「agent 自律 merge の gate 設計」原則 1 が示すとおり、GitHub は **PR author が自分の PR を approve できない**。author=agent=owner (PAT) だと `required_approving_review_count >= 1` が **満たせず詰む**ため、本 repo は `required_approving_review_count: 0` を選び、merge gate を **HOTL 判断（原則 6: 報告して停止・人間が merge）** と review thread resolution（agent 自身が resolve でき得る監査ステップ）で担保している。つまり「compromised/rogue box が自分で merge しない」が **機構ではなく規約**でしか守られていない。
+- **P1（gate が機構化できない）**: [../instructor/repo-settings.md](../instructor/repo-settings.md) の「agent 自律 merge の gate 設計」原則 1 が示すとおり、GitHub は **PR author が自分の PR を approve できない**。author=agent=owner (PAT) だと `required_approving_review_count >= 1` が **満たせず詰む**ため、本 repo は `required_approving_review_count: 0` を選び、merge gate を **HOTL 判断（原則 6: 報告して停止・人間が merge）** と review thread resolution（agent 自身が resolve でき得る監査ステップ）で担保している。つまり「compromised/rogue box が自分で merge しない」が **機構ではなく規約**でしか守られていない。
 - **P2（scale / key 露出）**: 「box に identity を持たせる」を素朴に読むと **人数分の App/PAT** になり、App private key を box に配ると高価値 secret が広く分散する（key 漏洩 = App 全 install repo への token 生成能力・無期限。token 漏洩 = 1 repo・≤1h より遥かに悪い）。
 
 ## 決定 1: box を GitHub App bot identity で回す（proxy substitution + host broker）
@@ -48,7 +48,7 @@ App identity を有効にした canonical repo でのみ、ruleset の `required
 
 ## 決定 4: App 権限は最小、two-tier（canonical=App / fork=PAT）
 
-- **App 権限**（原則 3/4 の token 最小化と同型・既存 PAT ([../setup.md](../setup.md)) と揃える）: Repository permissions = `Contents: RW`（push）+ `Pull requests: RW`（PR 操作）+ `Issues: RW`（review backlog の `gh issue create`）+ `Actions: Read`（`gh pr checks` の rollup / `gh run view --log` の CI 失敗診断）+ `Commit statuses: Read`（`Metadata: Read` は自動）。**`Workflows` を付けない**（compromised box に `.github/workflows/**` 改変 = required check の no-op 化を許さない。原則 3）。**`Administration` を付けない**（ruleset 自体の改変を許さない。原則 4）。install は canonical repo のみ。
+- **App 権限**（原則 3/4 の token 最小化と同型・既存 PAT ([../guide/setup.md](../guide/setup.md)) と揃える）: Repository permissions = `Contents: RW`（push）+ `Pull requests: RW`（PR 操作）+ `Issues: RW`（review backlog の `gh issue create`）+ `Actions: Read`（`gh pr checks` の rollup / `gh run view --log` の CI 失敗診断）+ `Commit statuses: Read`（`Metadata: Read` は自動）。**`Workflows` を付けない**（compromised box に `.github/workflows/**` 改変 = required check の no-op 化を許さない。原則 3）。**`Administration` を付けない**（ruleset 自体の改変を許さない。原則 4）。install は canonical repo のみ。
 - **two-tier**（design 意図。現状は下記「残差・未決」のとおり canonical repo も revert 中で PAT default + `required_approving_review_count: 0`）:
   - **canonical repo（App identity 再有効化時）** = App identity（broker-minted token）+ ruleset 機械強制 gate（require 1 approval / bypass 空）。
   - **fork / その他 / 現状の canonical repo** = clone-and-go / PAT / 規約 gate（HOTL）。App も key も broker も marker も無し。fork は org/repo ruleset 非継承なので強制されない。
@@ -69,7 +69,7 @@ App identity を有効にした canonical repo でのみ、ruleset の `required
 ## 残差・未決
 
 - **ruleset flip は実運用検証後に revert 済み**: 決定 3 の `required_approving_review_count` 0→1 は、実運用検証（throwaway box を App bot identity で起動 → App 発 test PR を作成 → host 側 human account で approve 成功を確認）の後に一度実施した。GitHub の self-approve 制限は「author と同一アカウントによる approve」を禁ずるものであり、author=bot・approver=human owner は元から別アカウントのため self-approve に該当しない（規約を迂回しているのではなく、そもそも制限の対象外であることを確認した）。しかし `bypass_actors` 空・`enforcement: active` のため gate は **repo 全体に一律適用**され、marker 無し box や host session が author=PAT（= repo owner 本人）で作る PR にも同じ approve 要件がかかることが判明した。owner が唯一の human account である本 repo では、PAT 発 PR は App bot からの approve を得る以外に gate を満たせなくなり（human 側の別アカウントが無い）、通常運用のたびに App bot approve の workaround を要求するのは実用的でなかった。App identity marker（全 box が常時 marker 有効で運用する体制）が整うまでは `required_approving_review_count: 0` + marker unset に revert し、PAT を default 運用に戻している。broker / marker toggle 自体は削除せず、再度 canonical 運用へ移行する際に再有効化する。
-- **CI required status check 依存**: 原則 3 の「red では merge 不可」は PR-triggered CI が前提で、本 repo は現状 `workflow_dispatch` only（[../repo-settings.md](../repo-settings.md)「PR-triggered CI が要る」参照）。App gate（require approval）は CI gate とは独立に機能する。
+- **CI required status check 依存**: 原則 3 の「red では merge 不可」は PR-triggered CI が前提で、本 repo は現状 `workflow_dispatch` only（[../instructor/repo-settings.md](../instructor/repo-settings.md)「PR-triggered CI が要る」参照）。App gate（require approval）は CI gate とは独立に機能する。
 - **installation token の 1h 失効**: broker の refresh に依存。broker が長時間 hang すると期限切れ → box が 401（`ghApi` に 30s timeout + 失敗時 short-retry で self-heal）。
 
 ## Sources

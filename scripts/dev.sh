@@ -15,6 +15,7 @@ set -euo pipefail
 
 TEMPLATE="coding-agent-playbook-sbx"
 KIT="./sbx/playbook-kit"
+KIT_KIMI="./sbx/playbook-kit-kimi"
 NAME_RE='^[A-Za-z0-9][A-Za-z0-9-]*$'
 # App identity broker: 有効化は sbx marker secret (APP_IDENTITY_ENABLE) の presence で per-box / global に
 # 切り分け、appId/keyPath は下記 config file (gitignore・per-machine) が供給する (owner/repo は broker が
@@ -22,17 +23,62 @@ NAME_RE='^[A-Za-z0-9][A-Za-z0-9-]*$'
 #   sbx secret set-custom <box> --host app-identity.invalid --env APP_IDENTITY_ENABLE --value 1
 _APP_BROKER_CONFIG=".claude/app-broker.local.json"
 _APP_IDENTITY_MARKER_ENV="APP_IDENTITY_ENABLE"
+# Kimi fallback (Anthropic 障害時、手順: docs/guide/kimi-fallback.md): marker が立つと新規 box の claude を
+# Kimi backend で起動する。下記 placeholder は公開の routing 値で secret ではない (proxy が
+# api.moonshot.ai 宛 request 中でのみ実 key に置換し、実 key は box に入らない)。
+_KIMI_MARKER_ENV="PLAYBOOK_KIMI_ENABLE"
+_KIMI_MARKER_PLACEHOLDER="playbook-kimi-enable"
+_KIMI_KEY_PLACEHOLDER="sbx-playbook-kimi-moonshot"
+_KIMI_KEY_HOST="api.moonshot.ai"
 
-# marker (sbx custom secret、上記 env 名) が この box (per-box scope) か 全 box (global scope) に立って
-# いるか。値は読まない (host は sbx secret の値を読めない) — presence だけ見る。
-_app_identity_enabled() {
-  local name="$1"
-  sbx secret ls 2>/dev/null | awk -v box="$name" -v env="$_APP_IDENTITY_MARKER_ENV" '
+# marker (sbx custom secret) が この box (per-box scope) か 全 box (global scope) に立っているか。
+# 値は読まない (host は sbx secret の値を読めない) — presence だけ見る。
+_marker_secret_present() {
+  local name="$1" env="$2"
+  sbx secret ls 2>/dev/null | awk -v box="$name" -v env="$env" '
     ($1 == "(global)" || $1 == box) {
       for (i = 1; i <= NF; i++) if ($i == env) found = 1
     }
     END { exit !found }
   '
+}
+
+_app_identity_enabled() { _marker_secret_present "$1" "$_APP_IDENTITY_MARKER_ENV"; }
+_kimi_enabled()         { _marker_secret_present "$1" "$_KIMI_MARKER_ENV"; }
+
+# Kimi key (fixed placeholder の global custom secret) の登録有無。placeholder は公開の routing 値で
+# secret ではない (実 key は sbx store 内、host からは masked 表示のみ)。placeholder と対象 host が
+# 同一行に揃っていることまで見る (別 host に登録された placeholder は proxy 置換されず素通りするため)。
+_kimi_key_registered() {
+  sbx secret ls 2>/dev/null | awk -v ph="$_KIMI_KEY_PLACEHOLDER" -v host="$_KIMI_KEY_HOST" '
+    $1 == "(global)" {
+      p = 0; h = 0
+      for (i = 1; i <= NF; i++) {
+        if ($i == ph) p = 1
+        # TARGETS 列は複数 host が comma 区切りになりうるため分割して exact match する
+        # (substring 判定だと notapi.moonshot.ai 等の別 host 登録が誤通過する)。
+        n = split($i, hosts, ",")
+        for (j = 1; j <= n; j++) if (hosts[j] == host || hosts[j] == (host ":443")) h = 1
+      }
+      if (p && h) found = 1
+    }
+    END { exit !found }
+  '
+}
+
+# key 未登録のまま Kimi box を作ると placeholder が置換されず claude がどこにも認証できない壊れ box に
+# なるため fail-closed で abort する (openai skip のような fail-open にしない: box の主目的自体が壊れる)。
+_kimi_preflight() {
+  local name="$1"
+  if _kimi_key_registered; then
+    echo "info: box '$name' は Kimi backend (kimi-k2.7-code) で起動します ($_KIMI_MARKER_ENV marker)。" >&2
+    return 0
+  fi
+  echo "error: $_KIMI_MARKER_ENV marker が立っていますが Moonshot API key (custom secret) が未登録です (または --host $_KIMI_KEY_HOST 以外に登録されています)。" >&2
+  echo "       登録: sbx secret set-custom -g --host $_KIMI_KEY_HOST --placeholder $_KIMI_KEY_PLACEHOLDER --value <MOONSHOT_API_KEY>" >&2
+  echo "       marker 解除 (global): sbx secret rm -g --placeholder $_KIMI_MARKER_PLACEHOLDER -f" >&2
+  echo "       marker 解除 (per-box): sbx secret rm $name --placeholder $_KIMI_MARKER_PLACEHOLDER -f  (詳細: docs/guide/kimi-fallback.md)" >&2
+  exit 1
 }
 
 # cd 前に caller worktree の branch を捕捉する (cd 後だと git-common-dir 経由で main checkout root の
@@ -805,6 +851,10 @@ cmd_sandbox() {
   else
     # 新規 box 作成: preflight 実行 (image build 忘れ / setup check 忘れの救済)。
     preflight_setup
+    if _kimi_enabled "$NAME"; then
+      _kimi_preflight "$NAME"
+      exec sbx run --name "$NAME" claude -t "$TEMPLATE" --kit "$KIT" --kit "$KIT_KIMI" --clone .
+    fi
     exec sbx run --name "$NAME" claude -t "$TEMPLATE" --kit "$KIT" --clone .
   fi
 }
@@ -851,6 +901,10 @@ cmd_observe() {
     exec sbx run --name "$NAME"
   else
     preflight_setup
+    if _kimi_enabled "$NAME"; then
+      _kimi_preflight "$NAME"
+      exec sbx run --name "$NAME" claude -t "$TEMPLATE" --kit "$KIT" --kit "$KIT_KIMI" --clone .
+    fi
     exec sbx run --name "$NAME" claude -t "$TEMPLATE" --kit "$KIT" --clone .
   fi
 }
@@ -1386,6 +1440,9 @@ start_box() {
   # trap を生かすため exec は使わず sbx run の return を待つ。
   if sbx ls -q 2>/dev/null | grep -Fxq -- "$NAME"; then
     sbx run --name "$NAME"
+  elif _kimi_enabled "$NAME"; then
+    _kimi_preflight "$NAME"
+    sbx run --name "$NAME" claude -t "$TEMPLATE" --kit "$KIT" --kit "$KIT_KIMI" .
   else
     sbx run --name "$NAME" claude -t "$TEMPLATE" --kit "$KIT" .
   fi

@@ -45,11 +45,12 @@
 - 権限を絞って、ある程度安全に dangerously-skip-permissions
 - 別の coding agent との連携
 - prompt 入力から merge 待機までの一連の流れの自動化
+- 複数 box を並列で回して issue を一気に捌く
 - 500 エラーから PR 作成
 
 ---
 
-## 全体像
+## 全体像（1 box の基本ループ）
 
 <div class="mermaid">
 flowchart TB
@@ -78,9 +79,41 @@ flowchart TB
 
 ---
 
+## 並列開発（box を増やして issue を捌く）
+
+<div class="mermaid">
+flowchart TB
+  subgraph H["host マシン"]
+    U(("受講者"))
+    R[("repo")]
+    T["Traefik（任意・dev.sh route）<br/>box ごとに名前付き URL（.localhost）で振り分け"]
+  end
+  subgraph SBX["Docker Sandboxes（box ごとに 1 session・各 box が cdx pair を持つ）"]
+    subgraph P1["dev box 1 ＋ cdx box 1"]
+      C1["Claude Code"]
+      A1["dev server"]
+    end
+    subgraph P2["dev box 2 ＋ cdx box 2 … N"]
+      C2["Claude Code"]
+      A2["dev server"]
+    end
+  end
+  U -- "dev.sh を box ごとに起動して issue を割り当て" --> C1
+  U --> C2
+  R -- "bind-mount で全 box に共有" --- C1
+  R --- C2
+  C1 -- "push / PR" --> GH["GitHub"]
+  C2 --> GH
+  U -- "名前付き URL で app を閲覧" --> T
+  T --> A1
+  T --> A2
+</div>
+
+---
+
 <!-- .slide: class="title-slide" -->
-## まずは環境構築
-**[環境構築 →](01-setup.html)**
+## まずは壁打ち
+**[壁打ち →](01-brainstorm.html)**
         </textarea>
       </section>
     </div>

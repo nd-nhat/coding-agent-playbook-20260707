@@ -1,23 +1,24 @@
 # Setup 詳細
 
-[README](../README.md) §1 の Quick start で扱わない補足。秘密情報の権限根拠、cdx-`<NAME>` pair reviewer の運用、image / claude / codex の更新手順。
+[README](../../README.md) §1 の Quick start で扱わない補足。秘密情報の権限根拠、cdx-`<NAME>` pair reviewer の運用、image / claude / codex の更新手順。
 
 ## 認証 secret の詳細
 
-box 起動時に sbx が自動で box に provision するため、毎回 `/login` / GitHub 認証する必要なし。**secret はグローバルでも box の作成時にのみ provision される**ため、`scripts/dev.sh` で box を立てる前に下記 3 つの secret (anthropic / github / openai) を登録しておく必要がある (後から登録すると box を再作成しないと反映されない)。**API key 経路 / 箱内 /login 経路 / codex サブスク (`~/.codex/auth.json` 転送) 経路の使い分け** は [sbx/README.md](../sbx/README.md) 「認証」セクション参照。
+box 起動時に sbx が secret を box に provision するため、box 内で毎回認証し直す必要はない。**secret はグローバルでも box の作成時にのみ provision される**ため、`scripts/dev.sh` で box を立てる前に **github / openai** を登録しておく (後から登録すると box を再作成しないと反映されない)。**anthropic はサブスク (Pro/Max) なら secret 登録は不要** — 最初の box で `/login` すれば以降の新規 box は自動 provision される (v0.34.0。下記)。**API key 経路 / サブスク `/login` seeding 経路 / codex サブスク (`~/.codex/auth.json` 転送) 経路の使い分け** は [sbx/README.md](../../sbx/README.md) 「認証」セクション参照。
 
 ### anthropic (claude を box の中で動かす)
 
+サブスク (Pro/Max) は **最初の box で `/login` するだけ** (v0.34.0)。`/login` の OAuth token を sbx proxy が host store に保持し、以降の新規 box には sentinel credentials が自動 provision される (実トークンは box に入らない)。**secret 登録はしない** — `claude setup-token` を `sbx secret set -g anthropic` すると apikey 型で登録され、box が `SBX_CRED_ANTHROPIC_MODE=apikey` になって `claude -p` が「Invalid API key」で壊れる ([sbx/README.md](../../sbx/README.md) 「認証」)。
+
 ```bash
-claude setup-token                         # 長期トークン sk-ant-oat01-... を発行 (host で 1 回)
-sbx secret set -g anthropic                # 表示されたトークンを貼る
+sbx run <box>      # claude 起動後に /login (最初の 1 box だけ。以降は自動 provision)
 ```
 
-長期トークンを発行せず API key 経路で済ませたい場合は、`claude setup-token` の代わりに [sbx/README.md 経路 A](../sbx/README.md#経路-a-api-keyproxy-注入トークンは-box-に入らない) (`sbx secret set -g anthropic` に API key を貼る) に置き換える。この場合 `claude` CLI の host install は省略可。
+API 課金にする / サブスクを持たない場合は API key 経路: [sbx/README.md](../../sbx/README.md) 「認証」の「代替: API key」に従い `sbx secret set -g anthropic` に API key (`sk-ant-api...`) を貼る。この場合サブスクの `/login` は不要。
 
 ### github (PR 操作)
 
-[README](../README.md) §3 の PR フローで box の中の `gh pr create` / `gh pr checks` / `gh run view` が叩く。**fine-grained PAT** ([https://github.com/settings/personal-access-tokens/new](https://github.com/settings/personal-access-tokens/new)) を発行する:
+[README](../../README.md) §3 の PR フローで box の中の `gh pr create` / `gh pr checks` / `gh run view` が叩く。**fine-grained PAT** ([https://github.com/settings/personal-access-tokens/new](https://github.com/settings/personal-access-tokens/new)) を発行する:
 
 - **Repository access**: 本リポ (fork なら自分のコピー) のみに限定
 - **Permissions** (Repository permissions):
@@ -39,7 +40,7 @@ sbx secret set -g github                   # 表示されたプロンプトに P
 
 ### github を App identity 化する (opt-in・canonical repo)
 
-上記 PAT だと PR author = 自分になり、GitHub の self-approve 禁止で human approval を **機械強制 gate にできない** ([repo-settings.md](repo-settings.md) 原則 1)。box を **GitHub App bot** で回すと author=bot になり human approve が satisfiable な gate になる (設計根拠と trade-off は [decisions/app-identity-gate.md](decisions/app-identity-gate.md))。canonical repo で使う時だけの opt-in:
+上記 PAT だと PR author = 自分になり、GitHub の self-approve 禁止で human approval を **機械強制 gate にできない** ([docs/instructor/repo-settings.md](../instructor/repo-settings.md) 原則 1)。box を **GitHub App bot** で回すと author=bot になり human approve が satisfiable な gate になる (設計根拠と trade-off は [decisions/app-identity-gate.md](../decisions/app-identity-gate.md))。canonical repo で使う時だけの opt-in:
 
 1. **GitHub App 作成** (org/account の設定画面。box からは不可): Repository permissions は**上記 PAT と同じ**セット = `Contents: RW` + `Pull requests: RW` + `Issues: RW` + `Actions: Read` + `Commit statuses: Read` (`Workflows` / `Administration` は付けない = 原則 3/4)、install は本 repo のみ。App ID と private key (.pem) を控える。
 2. **broker config** (gitignore・per-machine): `.claude/app-broker.local.json.example` を `.claude/app-broker.local.json` にコピーし `appId` + `keyPath` (host の .pem 絶対パス) を記入 (owner/repo は origin remote から自動導出)。private key は **host のみ**に置き、box に配らない / commit しない。
@@ -51,7 +52,7 @@ sbx secret set-custom <box> --host app-identity.invalid --env APP_IDENTITY_ENABL
 
 marker が立つ box で `scripts/dev.sh` 起動時に broker (`scripts/internal/app-token-broker.js`) が bg 起動し、per-box github secret を App installation token に live 更新する (~50min refresh)。box は sentinel のまま author=bot。marker 無し = 現行 PAT のまま (fail-open)。box を抜けると teardown で per-box secret を除去して PAT に戻す。
 
-4. **gate 有効化** (最後・手動): App 発 PR を human approve できるのを実運用で確認後、ruleset の `required_approving_review_count` を 0→1 にする ([repo-settings.md](repo-settings.md) の App-gate 節)。**本 canonical repo では一度実施したが、PAT fallback 経路との衝突により revert 済み** ([decisions/app-identity-gate.md](decisions/app-identity-gate.md) 「残差・未決」参照)。**再有効化の条件は「全 box が常時 marker 有効」だけでは不十分**: host session（本 repo の場合、`/pr-ci` 等が host `codex` CLI 直で動く経路）が author=owner PAT で PR を作る経路も存在し、box を全て marker 有効化しても host 発 PR は同じ deadlock を再現する。再有効化するなら host session 発 PR にも App bot（または別アカウント）からの approve 手段を用意してから行う。
+4. **gate 有効化** (最後・手動): App 発 PR を human approve できるのを実運用で確認後、ruleset の `required_approving_review_count` を 0→1 にする ([docs/instructor/repo-settings.md](../instructor/repo-settings.md) の App-gate 節)。**本 canonical repo では一度実施したが、PAT fallback 経路との衝突により revert 済み** ([decisions/app-identity-gate.md](../decisions/app-identity-gate.md) 「残差・未決」参照)。**再有効化の条件は「全 box が常時 marker 有効」だけでは不十分**: host session（本 repo の場合、`/pr-ci` 等が host `codex` CLI 直で動く経路）が author=owner PAT で PR を作る経路も存在し、box を全て marker 有効化しても host 発 PR は同じ deadlock を再現する。再有効化するなら host session 発 PR にも App bot（または別アカウント）からの approve 手段を用意してから行う。
 
 > ℹ️ marker の presence で切り分けるのは、host が sbx secret の**値**を読めない (masked) 一方 **presence は `sbx secret ls` で読める**ため。手動 `dev.sh` でも Claude 経由でも効き、per-box で永続する。
 
@@ -63,7 +64,7 @@ sbx secret set -g openai --oauth           # browser で ChatGPT 認証 (codex C
 
 ## cdx-`<NAME>` pair reviewer の運用 (per-pair lifecycle)
 
-codex second-opinion (`/a2a-review` / `/pr-codex-ci`、[README](../README.md) §3 の PR フロー step 4) は **claude box `<NAME>` とペアの codex box `cdx-<NAME>`** に立てた A2A server に instruction を投げる構成。
+codex second-opinion (`/a2a-review` / `/pr-codex-ci`、[README](../../README.md) §3 の PR フロー step 4) は **claude box `<NAME>` とペアの codex box `cdx-<NAME>`** に立てた A2A server に instruction を投げる構成。
 
 **per-pair lifecycle**:
 

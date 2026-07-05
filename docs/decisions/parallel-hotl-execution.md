@@ -32,7 +32,7 @@ docker 権限を持つため、乗っ取られた agent は `sudo iptables -F` /
 |------|------------------|------------------------|
 | 並列 | worktree ごと box（手組み・可） | clone mode / 複数 microVM（並列がファーストクラス） |
 | HOTL の安全境界 | **soft**（root agent が破れる）→ 密な監視前提 | **hard**（hypervisor 境界、VM 内 root でも破れない） |
-| credential | 箱内（scope で律速） | 箱外注入（sentinel + proxy）が既定で真の隔離。但し proxy 注入の対象は API key のみで、サブスク認証（claude サブスク = 箱内 /login、codex サブスク = auth.json 転送）はトークンが箱内に入る（sbx/README.md の security 注記参照） |
+| credential | 箱内（scope で律速） | 箱外注入（sentinel + proxy）が既定で真の隔離。但し proxy 注入の対象は API key のみで、サブスク認証（claude サブスク = 箱内 /login、codex サブスク = auth.json 転送）はトークンが箱内に入る（sbx/README.md の security 注記参照）。**2026-07-02 追記**: v0.34.0 で claude サブスクは箱内 `/login` → host store 保持（box は sentinel のみ）に変わり **token-not-in-box** 化。箱内に入る実トークンは codex の auth.json のみ（本セルの claude 部分は v0.33 時点の記述。現行 SoT は sbx/README.md 認証節） |
 | microservices | DinD で箱内 compose 可 | sandbox 内 Docker engine で箱内 compose 可 |
 | 配布 | repo に同梱（clone だけ）+ host に Docker | host に sbx を別途導入（brew/winget）+ 認証 |
 | 成熟度 | 自前管理 | GA 2026-01-30（新しめ）。商用 pricing は未確定 |

@@ -57,7 +57,7 @@ session の概要 (起動時刻 / 主なやり取りの要約 / 最終 assistant
 
 | 問題 | 対処 |
 |------|------|
-| `sbx: command not found` | docs/box-ops.md に従って Docker Sandboxes (sbx) を host にインストール |
+| `sbx: command not found` | rules/box-ops.md に従って Docker Sandboxes (sbx) を host にインストール |
 | `box <box_name> not found` | `sbx ls` で正確な box 名を確認 |
 | `box <box_name> is not running` | `sbx run --name <box_name>` で起動してから再実行 |
 | `no running claude box found` (auto-detect 失敗) | running な claude agent box が無い。`sbx run claude ... .` で起動するか、`<box_name>` を明示的に指定する |

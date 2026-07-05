@@ -1,7 +1,7 @@
 # 決定記録: stage/* を orphan 凍結 checkpoint から main と履歴共有する stacked branch 連鎖へ移行する
 
 **status**: Accepted・実装済み（2026-07-02 移行完了: 新 stage/01–08 を push 済み・main 側の scripts / docs / slides 追従も同日 merge。rollback 用に温存した `archive/stage-orphan/*` は、移行検証の完了と owner 判断により同日削除済み — checkpoint 内容は新 stage の app/ にハッシュ一致で引き継がれており、旧 orphan 時代の commit は当時の PR 参照経由で GitHub 上に残る）
-**関連**: [../../CLAUDE.md](../../CLAUDE.md)「stage ブランチの規約」/ [../../rules/worktrees.md](../../rules/worktrees.md) / [../instructor.md](../instructor.md) / [../stage-playbook.md](../stage-playbook.md)
+**関連**: [../../rules/stages.md](../../rules/stages.md)/ [../../rules/worktrees.md](../../rules/worktrees.md) / [../instructor/README.md](../instructor/README.md) / [../instructor/stage-playbook.md](../instructor/stage-playbook.md)
 
 ## 背景
 
@@ -43,7 +43,7 @@ worktree が引き続き必要な場面は残る:
 2. **先に旧 `.worktrees/` の展開を `git worktree remove` で全て外す**（checked-out branch は rename できないため、この順序が必須）→ 旧 orphan 系列を `archive/stage-orphan/NN` に rename して温存（rollback 手段。origin にも push）
 3. 新系列を `stage/*` として push（live ruleset は 2 本とも `~DEFAULT_BRANCH` のみ対象で stage/* に保護なし — 2026-07-02 に API で確認済み。置き換え push を阻むものは無い）
 4. instructor 用に必要な分だけ worktree を再展開（旧展開の除去は手順 2 で実施済み）
-5. 追従して書き換えるもの: CLAUDE.md「stage ブランチの規約」/ [../../rules/worktrees.md](../../rules/worktrees.md) / [../../rules/box-ops.md](../../rules/box-ops.md)（stage worktree 展開前提の記述）/ [../instructor.md](../instructor.md) / [../stage-playbook.md](../stage-playbook.md) / スライド 01（setup-worktrees 行の除去）・02–06（「開く stage」→ `git switch stage/NN`）/ `scripts/internal/new-stage.sh`・`.ps1`（orphan 起点をやめ前 stage から分岐）/ `scripts/internal/setup-worktrees.sh`・`.ps1`（受講者必修から外し instructor 向けに縮退 or 撤去）
+5. 追従して書き換えるもの: CLAUDE.md「stage ブランチの規約」/ [../../rules/worktrees.md](../../rules/worktrees.md) / [../../rules/box-ops.md](../../rules/box-ops.md)（stage worktree 展開前提の記述）/ [../instructor/README.md](../instructor/README.md) / [../instructor/stage-playbook.md](../instructor/stage-playbook.md) / スライド 01（setup-worktrees 行の除去）・02–06（「開く stage」→ `git switch stage/NN`）/ `scripts/internal/new-stage.sh`・`.ps1`（orphan 起点をやめ前 stage から分岐）/ `scripts/internal/setup-worktrees.sh`・`.ps1`（受講者必修から外し instructor 向けに縮退 or 撤去）
 
 ## トレードオフ・残差
 

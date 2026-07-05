@@ -48,16 +48,27 @@
 
 - **自分の設計から地続き**で進む（追いつくなら `git switch stage/03-design`）
 - 設計に沿って**動く MVP** を実装（web / api / mock / core / infra）
-- mock サーバ経由で診断フローが一通り動くまで
-- 到達点: 動く MVP
+- **定義した流れに沿って PR を作らせ、merge-ready まで自走させる**
 
 ---
 
-## 見どころ: merge 待機まで自走
+## PR までの流れ（1 プロンプトで自走）
 
-- 専用 worktree を切る → 実装 → `gh pr create`
-- PR 後は `/pr-codex-ci` が **codex review + CI + bot review 対応**を merge-ready まで自走
-- 人間がやるのは最後の **merge 判断だけ**
+<div class="mermaid">
+flowchart LR
+  I["実装<br/>（worktree 内）"] --> P["commit / push<br/>→ PR 作成"]
+  subgraph G["/pr-codex-ci が merge-ready まで自走"]
+    CX["codex review + CI 確認<br/>（local gate）"]
+    BR["PR の bot review 対応<br/>（remote gate）"]
+    CX --> BR
+    BR -- "修正 push したら再評価" --> CX
+  end
+  P --> CX
+  BR --> RPT["merge-ready 報告<br/>（agent は停止）"]
+  RPT --> M["merge 判断<br/>（人間）"]
+</div>
+
+<span class="subtle">実装中の codex 相談（`/a2a-review`）は任意の second opinion。PR 後の codex review は gate として必ず回る。自走中の人間は **HOTL 監視**（statusLine の session id → host から transcript）</span>
 
 ---
 
@@ -70,6 +81,7 @@
   </div>
   <script src="https://cdn.jsdelivr.net/npm/reveal.js@5.2.1/dist/reveal.js" integrity="sha384-rZIIVPQD/+U9IL3I62KrBHuVtPgYv+xdXvER5RBiVQRszJEJfLKRrcrZwI7fhcHT" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/reveal.js@5.2.1/plugin/markdown/markdown.js" integrity="sha384-ee/QmFMUwC+YUuswSDzliKj27Anp3rSblE1ujBcPKyrzwG15Daa1GL6JcNbPg/oG" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@11.16.0/dist/mermaid.min.js" integrity="sha384-T/0lMUdJpd2S1ZHtRiofG3htU3xPCrFVeAQ1UUE2TJwlEJSV5NUwn30kP28n238E" crossorigin="anonymous"></script>
   <script>
     Reveal.initialize({
       hash: true,

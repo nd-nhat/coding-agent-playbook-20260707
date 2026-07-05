@@ -65,7 +65,7 @@ AWS 内で完結する model endpoint や non-agent workflow への architecture
 
 ### 補足: github author identity は別軸で分離できる
 
-上記「既知の制約」は **sbx secret 注入 identity**（anthropic/openai/github credential の box 種別分離）の話。**dev box の github "author" identity**（push / PR を誰の名前で行うか）は別軸で、host broker + sbx proxy の token 置換により **GitHub App bot** に分離できる（canonical repo で opt-in、author=bot は自己 approve 不可なので compromised box が human approval 無しに merge を通せない machine gate 化。P2「ユーザー資格を借用しない」の github 側実現）。host は sbx secret の値を読めないが presence で toggle する仕組みで、上記 secret scope 制約とは独立に成立する。設計: [../docs/decisions/app-identity-gate.md](../docs/decisions/app-identity-gate.md)、手順: [../docs/setup.md](../docs/setup.md)「github を App identity 化する」。
+上記「既知の制約」は **sbx secret 注入 identity**（anthropic/openai/github credential の box 種別分離）の話。**dev box の github "author" identity**（push / PR を誰の名前で行うか）は別軸で、host broker + sbx proxy の token 置換により **GitHub App bot** に分離できる（canonical repo で opt-in、author=bot は自己 approve 不可なので compromised box が human approval 無しに merge を通せない machine gate 化。P2「ユーザー資格を借用しない」の github 側実現）。host は sbx secret の値を読めないが presence で toggle する仕組みで、上記 secret scope 制約とは独立に成立する。設計: [../docs/decisions/app-identity-gate.md](../docs/decisions/app-identity-gate.md)、手順: [../docs/guide/setup.md](../docs/guide/setup.md)「github を App identity 化する」。
 
 ## CLI 既定・MCP 任意
 
@@ -84,7 +84,7 @@ AWS cred はこの経路に出てこない。大半の作業はここ。
 ### US2 host 側で使うケース（privileged / 人手）
 - **deploy**: host で `npm run deploy`（write cred は host のみ）→ 出力 URL を控える（**非 commit**・口頭/非公開メモで提示）。
   後始末は `cdk destroy`（NAT/ALB/Fargate の課金停止）。
-- **headful 確認**: host Chrome で deploy 済み URL を目視 / box からは cdp-bridge（[headful-bridge.md](../docs/headful-bridge.md)）か、
+- **headful 確認**: host Chrome で deploy 済み URL を目視 / box からは cdp-bridge（[headful-bridge.md](../docs/guide/headful-bridge.md)）か、
   CDN を `sbx policy allow` 後に dev box の headless chrome-devtools MCP で閲覧（dev box は AWS cred 非保持なので trifecta 不成立）。
 - **bridge**: box が host しか見えない事実を `/host-ask` → host が `/host-answer`。
 
