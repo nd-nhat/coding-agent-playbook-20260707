@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>壁打ち | Coding Agent Playbook</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.2.1/dist/reveal.css" integrity="sha384-tK61vs+AeByBmiQ/i6CLgp/PbaaoB/k7M4J5mlX70GVtBPGUk5avjbXhSwhsf3fS" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.2.1/dist/theme/white.css" integrity="sha384-flndleNngtsjA21lEvW9JpgOND8agbgm+1EI+KQFbNa0OcOWGydVQbh+G3H2E1dI" crossorigin="anonymous">
+  <style>
+    :root {
+      --r-main-font: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", "Meiryo", sans-serif;
+      --r-heading-font: var(--r-main-font);
+      --accent: #1f6feb;
+    }
+    .reveal { font-family: var(--r-main-font); }
+    .reveal h1, .reveal h2, .reveal h3 { font-family: var(--r-heading-font); color: #0d2b4e; text-transform: none; letter-spacing: 0; }
+    .reveal h1 { font-size: 2.1em; }
+    .reveal h2 { font-size: 1.55em; }
+    /* スライドは 1280x720 の枠を canvas とし、中身は上端から流す。枠に収まらないスライドは下の script で等倍縮小して全体を表示する (隠さない) */
+    .reveal .slides { text-align: left; }
+    .reveal section { height: 100%; top: 0 !important; padding: 40px 88px; box-sizing: border-box; }
+    .reveal .fit-wrap { width: 100%; }
+    .reveal h2 { margin-top: 0; margin-bottom: .55em; border-bottom: 3px solid var(--accent); padding-bottom: .2em; }
+    .reveal ul { margin: 0; }
+    .reveal li { margin: .4em 0; line-height: 1.5; }
+    .reveal strong { color: var(--accent); }
+    /* インラインコードは chip 状にして地の文と視覚的に区別する */
+    .reveal code { background: #edf2f9; color: #143d6b; padding: .08em .4em; border-radius: .25em; font-size: .9em; }
+    /* mermaid が svg に inline max-width を設定するため、全幅表示に上書きする */
+    .reveal .mermaid svg { width: 100%; max-width: none; height: auto; }
+    /* タイトル扉 (h1 のみのスライド) は枠の中央に置く */
+    .reveal section.title-slide { display: flex !important; flex-direction: column; justify-content: center; }
+    .reveal section.title-slide h1, .reveal section.title-slide h2 { border: none; }
+    .reveal .subtle { color: #5a6b7b; font-size: .7em; }
+  </style>
+</head>
+<body>
+  <div class="reveal">
+    <div class="slides">
+      <section data-markdown data-separator="\r?\n---\r?\n">
+        <textarea data-template>
+<!-- .slide: class="title-slide" -->
+# 壁打ち
+
+<span class="subtle">`stage/01-blank`</span>
+
+---
+
+## このフェーズでやること
+
+- ネット検索で最新情報を取得する
+- Chrome を agent に運転させる
+- 事実と推測にわける
+
+---
+
+## ネット検索で最新情報を取得する
+
+- agent の知識は**学習時点で止まっている** — 制度・料金・API 仕様は古いことがある
+- 「**ネット検索して**」と頼むだけでよい
+- 出典 URL ごと one-pager に残させる — 後から人間が検証・更新できる
+
+---
+
+## Chrome を agent に運転させる
+
+- **Fetch で取れないページ**（要ログイン等）を取りに行く
+- `--remote-debugging-port` + **専用 profile**（`--user-data-dir`）で Chrome を起動
+- chrome-devtools MCP を `--browser-url` で繋いで運転
+- ログインは**検証用アカウント** — 実 profile は渡さない（CDP は**全権**）
+
+---
+
+## 事実と推測にわける
+
+- agent の出力には**事実と推測が混ざる** — もっともらしい推測が企画を汚す
+- 「**事実と推測をわけて書いて**」と頼む — 事実は出典つき、推測は仮説と明記
+- 推測のまま企画に載せない — **採否の判断は人間**がする
+
+---
+
+<!-- .slide: class="title-slide" -->
+## 次は環境構築
+**[環境構築 →](02-setup.html)**
+        </textarea>
+      </section>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/reveal.js@5.2.1/dist/reveal.js" integrity="sha384-rZIIVPQD/+U9IL3I62KrBHuVtPgYv+xdXvER5RBiVQRszJEJfLKRrcrZwI7fhcHT" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/reveal.js@5.2.1/plugin/markdown/markdown.js" integrity="sha384-ee/QmFMUwC+YUuswSDzliKj27Anp3rSblE1ujBcPKyrzwG15Daa1GL6JcNbPg/oG" crossorigin="anonymous"></script>
+  <script>
+    // mermaid の auto-start (startOnLoad 既定 true) は window load で走り、reveal の slide 非表示化と
+    // race して図が空 viewBox に潰れるため、読み込み直後に無効化する (描画は下の ready 後ブロック)
+    if (window.mermaid) mermaid.initialize({ startOnLoad: false, theme: "neutral", flowchart: { htmlLabels: false } });
+    Reveal.initialize({
+      hash: true,
+      center: false,
+      width: 1280,
+      height: 720,
+      margin: 0,
+      slideNumber: "c/t",
+      plugins: [ RevealMarkdown ],
+    }).then(() => {
+      // 枠 (720px) に収まらないスライドは中身を等倍縮小して全体を表示する (隠さない)
+      const fit = () => {
+        const sec = Reveal.getCurrentSlide();
+        if (!sec) return;
+        let wrap = sec.querySelector(":scope > .fit-wrap");
+        if (!wrap) {
+          wrap = document.createElement("div");
+          wrap.className = "fit-wrap";
+          while (sec.firstChild) wrap.appendChild(sec.firstChild);
+          sec.appendChild(wrap);
+        }
+        wrap.style.transform = "none";
+        wrap.style.width = "100%";
+        const cs = getComputedStyle(sec);
+        const avail = 720 - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+        wrap.style.transformOrigin = "top left";
+        // 縮小時は倍率ぶん wrap を広げて縮小後に全幅へ戻す (縮小だけだと 100% 幅で折り返した行が縮み右側が空く)。幅を変えると折り返しで高さも変わるため二分探索で倍率を確定する
+        const fits = (s) => { wrap.style.width = (100 / s) + "%"; return wrap.scrollHeight * s <= avail + 0.5; };
+        let scale = 1;
+        if (!fits(1)) {
+          // 100% 幅時の縮小率を下限に取る (幅を広げると高さは増えないため必ず収まる保証付き = 収まらないまま探索が終わる床を持たない)
+          let lo = avail / wrap.scrollHeight, hi = 1;
+          for (let i = 0; i < 8; i++) { const mid = (lo + hi) / 2; if (fits(mid)) lo = mid; else hi = mid; }
+          scale = lo;
+          fits(scale);
+        }
+        wrap.style.transform = scale < 1 ? "scale(" + scale + ")" : "none";
+      };
+      fit();
+      Reveal.on("slidechanged", fit);
+      window.addEventListener("resize", fit);
+      // mermaid の <script> を読み込んだデッキだけ図を描画する (レイアウトが変わるので描画後に fit を再計算)
+      if (window.mermaid) {
+        // 非表示 slide 上で描画するとテキスト幅が 0 に測られ空 viewBox (幅 16px) に潰れるため、
+        // offscreen の可視コンテナで描画する。万一潰れた図は source から再描画してヒーリングする
+        const graphs = Array.from(document.querySelectorAll(".mermaid"));
+        graphs.forEach((g) => { g.__mermaidSrc = g.textContent; });
+        const collapsed = (g) => { const svg = g.querySelector("svg"); return !svg || svg.viewBox.baseVal.width < 32; };
+        const renderPass = async (targets) => {
+          const pen = document.createElement("div");
+          pen.style.cssText = "position:absolute;left:-10000px;top:0;width:1280px;visibility:hidden;";
+          document.body.appendChild(pen);
+          const slots = targets.map((g) => { const m = document.createComment("mermaid-slot"); g.parentNode.insertBefore(m, g); pen.appendChild(g); return m; });
+          try { await mermaid.run({ nodes: targets }); }
+          finally { targets.forEach((g, i) => { slots[i].parentNode.insertBefore(g, slots[i]); slots[i].remove(); }); pen.remove(); }
+        };
+        (async () => {
+          try {
+            if (graphs.length) await renderPass(graphs);
+            for (let retry = 0; retry < 3; retry++) {
+              const bad = graphs.filter(collapsed);
+              if (!bad.length) break;
+              await document.fonts.ready;
+              await new Promise((r) => setTimeout(r, 150 * (retry + 1)));
+              bad.forEach((g) => { g.removeAttribute("data-processed"); g.textContent = g.__mermaidSrc; });
+              await renderPass(bad);
+            }
+          } catch (e) { console.error("mermaid render failed", e); }
+          fit();
+        })();
+      }
+    });
+  </script>
+</body>
+</html>

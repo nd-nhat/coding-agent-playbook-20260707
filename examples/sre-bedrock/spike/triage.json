@@ -1,0 +1,24 @@
+{
+  "schema_version": "1",
+  "_note": "ADR cloud-unattended-sre.md の sanitized handoff。固定 schema・allowlist・raw log/secret 禁止。観測段(read-only)が生成し、修正 identity(AWS read なし)へ渡す唯一の入力。実値は placeholder。",
+  "incident": {
+    "service": "diag-api",
+    "signature": "upstream_contract_violation",
+    "http_status": 502,
+    "failing_path": "/power-data/readings",
+    "external_call": {
+      "kind": "upstream",
+      "path": "/power-data/readings",
+      "duration_ms_bucket": "lt_100"
+    },
+    "evidence": "readings 上流応答が contract 検証(zReadingsResponse)で失敗。kind=upstream かつ duration 小 = timeout でなく契約/本文の不一致。観測された payload の構造(キーのみ・値なし)は { data: { readings: [ ... ] } }、contract が期待する構造は { readings: [ ... ] }。上流が data でラップする形に drift した疑い。",
+    "first_seen": "PLACEHOLDER_ISO8601",
+    "count_5xx_window": "PLACEHOLDER_INT"
+  },
+  "constraints": {
+    "scope": "最小修正のみ。無関係な refactor をしない。",
+    "no_raw_logs": true,
+    "no_secrets": true,
+    "fixer_inputs": "repo + 本 triage のみ。AWS / network には出ない。"
+  }
+}

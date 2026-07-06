@@ -1,0 +1,23 @@
+# 共有リバースプロキシ（1 回だけ起動する）。port 80 を 1 つ公開し、Host 名で各 branch の各サービスへ振り分ける。
+# branch ごとに Traefik を立てると 80 が衝突するため、proxy は 1 つだけ共有する。
+# docker.sock は「ホスト側の通常 docker」を :ro で渡すだけ（YOLO サンドボックスの中ではない）。
+services:
+  traefik:
+    image: traefik:v3.7
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedByDefault=false
+      - --providers.docker.network=traefik-public
+      - --entryPoints.web.address=:80
+    ports:
+      - "80:80"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks: [traefik-public]
+
+# 既存の共有ネットワーク traefik-public を external 参照する（無ければ docker network create traefik-public）。
+# 既に shared traefik が稼働している環境では、この proxy.compose は起動せず stack だけ動かせばよい。
+networks:
+  traefik-public:
+    external: true
+    name: traefik-public

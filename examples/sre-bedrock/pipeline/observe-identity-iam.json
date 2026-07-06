@@ -1,0 +1,72 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ObserveLogsDiscoveryAndQueryResultsInRegion",
+      "Effect": "Allow",
+      "Action": [
+        "logs:DescribeLogGroups",
+        "logs:DescribeQueries",
+        "logs:GetQueryResults",
+        "logs:GetLogRecord"
+      ],
+      "Resource": "*",
+      "Condition": { "StringEquals": { "aws:RequestedRegion": "REGION" } }
+    },
+    {
+      "Sid": "ObserveLogsPayloadReadScopedToAppLogGroup",
+      "Effect": "Allow",
+      "Action": [
+        "logs:DescribeLogStreams",
+        "logs:FilterLogEvents",
+        "logs:GetLogEvents",
+        "logs:StartQuery",
+        "logs:StopQuery"
+      ],
+      "Resource": [
+        "arn:aws:logs:REGION:ACCOUNT_ID:log-group:APP_LOG_GROUP_NAME:*",
+        "arn:aws:logs:REGION:ACCOUNT_ID:log-group:APP_LOG_GROUP_NAME"
+      ]
+    },
+    {
+      "Sid": "ObserveMetricsAlarmsReadInRegion",
+      "Effect": "Allow",
+      "Action": [
+        "cloudwatch:GetMetricData",
+        "cloudwatch:GetMetricStatistics",
+        "cloudwatch:DescribeAlarms",
+        "cloudwatch:DescribeAlarmHistory"
+      ],
+      "Resource": "*",
+      "Condition": { "StringEquals": { "aws:RequestedRegion": "REGION" } }
+    },
+    {
+      "Sid": "ObserveWriteSanitizedTriageObjectOnly",
+      "Effect": "Allow",
+      "Action": ["s3:PutObject"],
+      "Resource": "arn:aws:s3:::TRIAGE_HANDOFF_BUCKET/triage/*"
+    },
+    {
+      "Sid": "ObserveOwnLambdaLogs",
+      "Effect": "Allow",
+      "Action": ["logs:CreateLogStream", "logs:PutLogEvents"],
+      "Resource": "arn:aws:logs:REGION:ACCOUNT_ID:log-group:/aws/lambda/OBSERVE_TRIAGE_FUNCTION:*"
+    },
+    {
+      "Sid": "DenyModelInvokeSecretsAndCredentialBroker",
+      "Effect": "Deny",
+      "Action": [
+        "bedrock:InvokeModel",
+        "bedrock:InvokeModelWithResponseStream",
+        "secretsmanager:GetSecretValue",
+        "secretsmanager:BatchGetSecretValue",
+        "sts:AssumeRole",
+        "sts:AssumeRoleWithWebIdentity",
+        "sts:AssumeRoleWithSAML",
+        "sts:GetFederationToken",
+        "sts:GetSessionToken"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.DS_Store
+# CDK
+infra/cdk.out/
+# env
+.env
+.env.local
+# vite
+apps/web/dist/

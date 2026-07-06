@@ -1,0 +1,34 @@
+schemaVersion: "1"
+kind: mixin
+name: playbook-kimi
+displayName: Coding Agent Playbook (Kimi backend for claude box)
+description: box の claude を Moonshot (Kimi) の Anthropic 互換 endpoint に切り替える mixin (Anthropic 障害時の fallback)
+
+# 有効化は dev.sh の marker secret toggle (PLAYBOOK_KIMI_ENABLE) 経由。全体像は docs/guide/kimi-fallback.md。
+#
+# ANTHROPIC_AUTH_TOKEN の値は固定 placeholder (公開値・secret ではない): host 登録済み custom secret の
+# 実 key に proxy が置換する (api.moonshot.ai 宛 request 中のみ、実 key は box に入らない)。
+# kit-spec 標準の credentials.sources / serviceAuth は sbx v0.34 で service binding が解決されない
+# ことを実機確認したため使わない (v2 canonical 形へ安易に書き換えると認証が壊れる)。
+network:
+  allowedDomains:
+    - "api.moonshot.ai:443"
+
+# 値は Moonshot 公式の Claude Code 連携ガイド ( https://platform.kimi.ai/docs/guide/agent-support ) 準拠。
+# ANTHROPIC_MODEL は Dockerfile の ENV (opus) を上書きする (built-in claude agent は env を権威として
+# settings.json を書き直すため、ここで全 model slot を Kimi に寄せる)。
+environment:
+  variables:
+    ANTHROPIC_BASE_URL: "https://api.moonshot.ai/anthropic"
+    ANTHROPIC_AUTH_TOKEN: "sbx-playbook-kimi-moonshot"
+    # 残存する Anthropic 認証 (secret 注入の sentinel / OAuth) を空で shadowing し、AUTH_TOKEN との
+    # 競合で Moonshot に別 credential が飛ぶ経路を塞ぐ (host wrapper claude-kimi.sh と同じ処置)。
+    ANTHROPIC_API_KEY: ""
+    CLAUDE_CODE_OAUTH_TOKEN: ""
+    ANTHROPIC_MODEL: "kimi-k2.7-code"
+    ANTHROPIC_DEFAULT_OPUS_MODEL: "kimi-k2.7-code"
+    ANTHROPIC_DEFAULT_SONNET_MODEL: "kimi-k2.7-code"
+    ANTHROPIC_DEFAULT_HAIKU_MODEL: "kimi-k2.7-code"
+    CLAUDE_CODE_SUBAGENT_MODEL: "kimi-k2.7-code"
+    ENABLE_TOOL_SEARCH: "false"
+    CLAUDE_CODE_AUTO_COMPACT_WINDOW: "262144"

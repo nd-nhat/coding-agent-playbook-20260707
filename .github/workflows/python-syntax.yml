@@ -1,0 +1,18 @@
+# TODO: workflow_dispatch only (private repo の課金回避)。public 化時の enable 手順は .github/workflows/README.md 参照
+name: python-syntax
+on:
+  workflow_dispatch:
+jobs:
+  python-syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - name: py_compile all tracked .py
+        # git ls-files でリポ内 python を網羅 (素の glob は recurse しないため)、-z/-0 空白安全、-r で 0 件時 skip
+        run: git ls-files -z '*.py' | xargs -0 -r python -m py_compile
+      - name: unittest (triage-lambda core)
+        # 放置されていた stdlib unittest (boto3 不要、CWD 非依存) を CI で常時実行し correctness regression を捕捉する
+        run: python -m unittest discover -s examples/sre-bedrock/pipeline/triage-lambda -p 'test_*.py'

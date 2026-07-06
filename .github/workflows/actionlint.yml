@@ -1,0 +1,14 @@
+# TODO: workflow_dispatch only (private repo の課金回避)。public 化時の enable 手順は .github/workflows/README.md 参照
+name: actionlint
+on:
+  workflow_dispatch:
+jobs:
+  actionlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download actionlint
+        id: get_actionlint
+        run: bash <(curl https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
+      - name: Run actionlint
+        run: ${{ steps.get_actionlint.outputs.executable }} -color

@@ -1,0 +1,31 @@
+{
+  "name": "one-tap-diagnosis",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ワンタップ実データ診断 MVP (docs/design.md 準拠)",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "workspaces": [
+    "packages/*",
+    "apps/*",
+    "infra"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "dev:mock": "npm run dev --workspace @diag/mock",
+    "dev:api": "npm run dev --workspace @diag/api",
+    "dev:web": "npm run dev --workspace @diag/web",
+    "dev": "concurrently -n mock,api,web -c magenta,cyan,green \"npm:dev:mock\" \"npm:dev:api\" \"npm:dev:web\"",
+    "synth": "npm run build --workspace @diag/web && npm run synth --workspace @diag/infra",
+    "deploy": "npm run build --workspace @diag/web && npm run deploy --workspace @diag/infra"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "tsx": "^4.22.4",
+    "typescript": "~6.0.2"
+  }
+}

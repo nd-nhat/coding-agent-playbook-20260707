@@ -1,0 +1,23 @@
+# ローカル開発（docs/design.md §11）。api + mock をコンテナで併走。
+# web は別途 `npm run dev:web`（Vite, /api を api コンテナへ proxy）。
+#   docker compose up --build
+services:
+  mock:
+    build:
+      context: .
+      dockerfile: apps/mock/Dockerfile
+    ports:
+      - '8787:8787'
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      # backend → mock（本番では実 API の URL に差し替え）
+      EXTERNAL_BASE_URL: http://mock:8787
+      TOKEN_SECRET: local-dev-secret
+    ports:
+      - '8788:8788'
+    depends_on:
+      - mock

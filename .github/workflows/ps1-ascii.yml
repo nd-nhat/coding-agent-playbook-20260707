@@ -1,0 +1,27 @@
+# TODO: workflow_dispatch only (private repo の課金回避)。public 化時の enable 手順は .github/workflows/README.md 参照
+name: ps1-ascii
+on:
+  workflow_dispatch:
+jobs:
+  ps1-ascii:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assert .ps1 files are ASCII-only
+        # LC_ALL=C でバイト単位マッチ (UTF-8 locale だと grep -P が Shift-JIS 等 invalid-UTF-8 バイトを
+        # [^\x00-\x7F] で拾えず本来 fail すべき .ps1 が pass する)。exit >=2 も握り潰さず fail し検査破損を検知。
+        run: |
+          mapfile -d '' files < <(git ls-files -z '*.ps1')
+          [ ${#files[@]} -eq 0 ] && exit 0
+          set +e
+          matches=$(LC_ALL=C grep -lP '[^\x00-\x7F]' -- "${files[@]}")
+          status=$?
+          set -e
+          if [ "$status" -eq 0 ]; then
+            echo "::error::Non-ASCII bytes in .ps1 (must be ASCII-only, see CLAUDE.md cross-platform 要件):"
+            echo "$matches"
+            exit 1
+          elif [ "$status" -ne 1 ]; then
+            echo "::error::ps1 ASCII check errored (grep exit $status)"
+            exit 1
+          fi

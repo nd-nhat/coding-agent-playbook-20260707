@@ -1,0 +1,6 @@
+{
+  "_comment": "Copy this to .claude/app-broker.local.json (gitignored) and fill appId + keyPath. This file only SUPPLIES config; it does NOT enable the broker. To turn App-bot identity ON for a box, set the marker secret: `sbx secret set-custom <box> --host app-identity.invalid --env APP_IDENTITY_ENABLE --value 1` (per-box), or use `-g` in place of <box> for all boxes. When a marked box starts, scripts/dev.sh (and dev.ps1) run scripts/internal/app-token-broker.js, which mints a repo-scoped GitHub App installation token on the host and live-updates the box's per-box github secret (~50min refresh) so the box's git/gh (using only the sbx sentinel) author PRs as the App bot. owner/repo auto-derive from the origin remote. The private key stays on the host and never enters the box. No marker = the current global PAT (forks / clone-and-go unchanged).",
+  "appId": "REPLACE_WITH_APP_ID",
+  "keyPath": "/absolute/path/to/your-github-app.private-key.pem",
+  "intervalSec": 3000
+}

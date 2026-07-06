@@ -1,0 +1,17 @@
+{
+  "name": "sre-bedrock-agentcore-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Pattern B SRE fixer agent (AgentCore Runtime / Node 22 / Bedrock backend)",
+  "main": "server.js",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.717.0"
+  }
+}

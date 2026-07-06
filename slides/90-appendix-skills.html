@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Appendix: Skill リファレンス | Coding Agent Playbook</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.2.1/dist/reveal.css" integrity="sha384-tK61vs+AeByBmiQ/i6CLgp/PbaaoB/k7M4J5mlX70GVtBPGUk5avjbXhSwhsf3fS" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.2.1/dist/theme/white.css" integrity="sha384-flndleNngtsjA21lEvW9JpgOND8agbgm+1EI+KQFbNa0OcOWGydVQbh+G3H2E1dI" crossorigin="anonymous">
+  <style>
+    :root {
+      --r-main-font: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", "Meiryo", sans-serif;
+      --r-heading-font: var(--r-main-font);
+      --accent: #1f6feb;
+    }
+    .reveal { font-family: var(--r-main-font); }
+    .reveal h1, .reveal h2, .reveal h3 { font-family: var(--r-heading-font); color: #0d2b4e; text-transform: none; letter-spacing: 0; }
+    .reveal h1 { font-size: 2.1em; }
+    .reveal h2 { font-size: 1.55em; }
+    /* スライドは 1280x720 の枠を canvas とし、中身は上端から流す。枠に収まらないスライドは下の script で等倍縮小して全体を表示する (隠さない) */
+    .reveal .slides { text-align: left; }
+    .reveal section { height: 100%; top: 0 !important; padding: 40px 88px; box-sizing: border-box; }
+    .reveal .fit-wrap { width: 100%; }
+    .reveal h2 { margin-top: 0; margin-bottom: .55em; border-bottom: 3px solid var(--accent); padding-bottom: .2em; }
+    .reveal ul { margin: 0; }
+    .reveal li { margin: .4em 0; line-height: 1.5; }
+    .reveal strong { color: var(--accent); }
+    /* インラインコードは chip 状にして地の文と視覚的に区別する */
+    .reveal code { background: #edf2f9; color: #143d6b; padding: .08em .4em; border-radius: .25em; font-size: .9em; }
+    /* タイトル扉 (h1 のみのスライド) は枠の中央に置く */
+    .reveal section.title-slide { display: flex !important; flex-direction: column; justify-content: center; }
+    .reveal section.title-slide h1, .reveal section.title-slide h2 { border: none; }
+    .reveal .subtle { color: #5a6b7b; font-size: .7em; }
+  </style>
+</head>
+<body>
+  <div class="reveal">
+    <div class="slides">
+      <section data-markdown data-separator="\r?\n---\r?\n">
+        <textarea data-template>
+<!-- .slide: class="title-slide" -->
+# Appendix: Skill リファレンス
+
+---
+
+## 全体マップ
+
+- 1 skill = 1 枚。詳細は各 `.claude/skills/*/SKILL.md`
+- **PR 後続 orchestrator**: `/pr-ci`（host）⇒ box では `/pr-codex-ci` へ**自動委譲**
+- **相互レビュー対**: `/codex-review`（host）⇒ box では `/a2a-review` へ**自動委譲**
+- **pre-PR sweep**: `/comment-sweep` / `/co-evolve-check` / `/extension-bloat-sweep`
+- **box↔host bridge**: ask / fetch / session 系（本デッキ後半）
+
+---
+
+## `/a2a-review` — box 内の codex 相談
+
+- 別 microVM の codex が**同じソースツリーを直接読む** second opinion
+- dev box 専用（`bash scripts/dev.sh` 起動。sandbox box 不可）
+- 例: `/a2a-review scripts/dev.sh を correctness 観点でレビュー`
+- 対象は**パス / diff を指示文で**渡す（worktree は `git -C`）
+- 採否は claude / 人間が判断
+
+---
+
+## `/codex-review` — host の codex 相談
+
+- host の `codex` CLI で second opinion（`/a2a-review` の host 対称）
+- box で叩くと `/a2a-review` に**自動委譲**
+- 例: `/codex-review git diff origin/main...HEAD をレビュー`
+- 前提: `npm i -g @openai/codex` + `codex login`
+- ⚠️ 外部 AI（OpenAI）にコード / diff を送信する
+
+---
+
+## `/comment-sweep` — コメント規範チェック
+
+- diff の**新規追加コメント**を `rules/code-comments.md` で判定
+- `gh pr create` 直前に発火（commit 前は `--staged` / `--worktree`）
+- 使い方: `/comment-sweep`（base は自動解決）
+- 違反は表で提示 → 承認後に修正まで実施
+- 対象言語は拡張子で列挙（Markdown は `<!-- -->` のみ）
+
+---
+
+## `/co-evolve-check` — 旧版温存の検出
+
+- `Foo` + `FooV2` の **version 並走（旧版温存）** を検出
+- 全 caller touched + 外部消費者なし = 「旧版を消せたはず」
+- 使い方: `/co-evolve-check`（pre-PR で並走）
+- TS/JS / Python の marker が無い repo は silent skip
+- non-blocking。「なぜ旧版を残したか?」を問う
+
+---
+
+## `/extension-bloat-sweep` — 詰め込み肥大の検出
+
+- 既存 file / 関数への**無理な拡張**を検出
+- E1: 大型 file へ大量追記 / E2: param 4+ / E6: 反復 modify
+- 使い方: `/extension-bloat-sweep`（pre-PR で並走）
+- `/co-evolve-check` の直交軸（温存 vs 肥大）
+- marker 無し repo は silent skip。non-blocking
+
+---
+
+## `/pr-codex-ci` — PR 後続の自走（box）
+
+- codex review + CI gate + bot review 対応を **merge-ready まで自走**
+- dev box 内。`gh pr create` 直後に**確認なしで発火**
+- 使い方: `/pr-codex-ci 123`（省略時は current branch の PR）
+- merge-ready = local gate **AND** remote gate（全 thread resolved）
+- 停止は最終報告 or HOTL escalate のみ。merge は人間判断
+
+---
+
+## `/pr-ci` — PR 後続の自走（host）
+
+- `/pr-codex-ci` の host 版（codex は host CLI 直）
+- box で叩くと `/pr-codex-ci` に**自動委譲**
+- 使い方: `/pr-ci 123`
+- 判定の質は box 版と同等（transport が違うだけ）
+- 詰まったら**選択肢でなく HOTL escalate**（黙って止まらない）
+
+---
+
+## `/pr-review-respond` — review thread 対応
+
+- PR に付いた bot / 人間 review を**採否 → reply → resolve**
+- 未解決 thread があると merge 不可（ruleset で強制）
+- 使い方: `/pr-review-respond 123`（通常は orchestrator が chain 起動）
+- 採用は correctness / security / regression / 契約違反のみ
+- **rubber-stamp resolve 禁止**（必ず読んで判断）
+
+---
+
+## `/box-session-context` — box session を覗く
+
+- box 内 session の transcript を host へコピーして**要約参照**
+- HOTL 監視用。host で実行（statusLine の session id を貼る）
+- 使い方: `/box-session-context <session_id> [<box名>]`
+- **参照専用** — 続きをやるなら `/box-session-resume`
+- transcript は box 内 fs のみ（`sbx rm` 前に取り出す）
+
+---
+
+## `/box-session-resume` — session を別の場所で再開
+
+- box session を host / 別 box で**同一 session として resume**
+- host なら直接実行、box なら host へ委譲（grant 待ち）
+- 使い方: `/box-session-resume <session_id> [<dest>]`
+- 条件: source / dest が**同じ mount path**（dev box ⇔ mac/Linux host）
+- clone box / Windows host は対象外
+
+---
+
+## `/box-session-resume-grant` — resume の実行 gate
+
+- box の resume 依頼を host で**検証して実行**
+- user が能動で叩くこと自体が **injection gate**
+- 使い方: `/box-session-resume-grant <box名>`
+- 生値は読まず **count-gate で機械抽出** → 目視 → 実行
+- 結果は bridge 経由で box が自動 pickup
+
+---
+
+## `/host-ask` — host への問い合わせ（box 発）
+
+- box から見えない **host の事実**を調査依頼
+- 例: port 占有者 / 他 project の compose / mount 外 fs
+- 使い方: `/host-ask traefik-port ":80 の占有者は?"`
+- host で `/host-answer` を叩いてもらう → ans は**自動 pickup**
+- host 側の自動応答は**意図的に無し**（injection chain を断つ）
+
+---
+
+## `/host-answer` — 問い合わせへの回答（host 側）
+
+- `/host-ask` への **read-only 調査**回答
+- host で user が能動で叩く
+- 使い方: `/host-answer <box名> [<topic>]`
+- 書き込み副作用は禁止（変更案の提示まで）
+- secret を ans に貼らない（host↔box 平文共有）
+
+---
+
+## `/host-fetch` — URL の代理取得依頼（box 発）
+
+- box egress が 403 の URL を host に**単発 GET/HEAD 代行**依頼
+- `sbx policy allow` はしない（box は絞ったまま）
+- 使い方: `/host-fetch https://docs.example.com/guide`
+- host で `/host-fetch-grant` → 結果は自動 pickup
+- 本文は artifact file 経由で **box だけが読む**
+
+---
+
+## `/host-fetch-grant` — 代理取得の実行 gate（host 側）
+
+- box の fetch 依頼を **SSRF-safe core** で実行
+- URL を人間が目視してから取得（user gate）
+- 使い方: `/host-fetch-grant <box名> [<topic>]`
+- private / loopback 拒否・redirect 非追従・GET/HEAD のみ
+- 生値は読まず count-gate で URL / method を抽出
+
+---
+
+## `/observe-session` — AWS read-only 調査の準備
+
+- **observe box を end-to-end で準備**（ログ調査のセットアップ）
+- 対象発見 → role 作成 → box 起動 → STS 注入 → smoke test
+- host で実行: `/observe-session [profile] [region] [log-group]`
+- 最後の `sbx run <box名>` だけ人間が叩く
+- 調査本体は `examples/observe/runbook.md` へ
+
+---
+
+<!-- .slide: class="title-slide" -->
+## スライド一覧へ戻る
+**[index →](index.html)**
+        </textarea>
+      </section>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/reveal.js@5.2.1/dist/reveal.js" integrity="sha384-rZIIVPQD/+U9IL3I62KrBHuVtPgYv+xdXvER5RBiVQRszJEJfLKRrcrZwI7fhcHT" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/reveal.js@5.2.1/plugin/markdown/markdown.js" integrity="sha384-ee/QmFMUwC+YUuswSDzliKj27Anp3rSblE1ujBcPKyrzwG15Daa1GL6JcNbPg/oG" crossorigin="anonymous"></script>
+  <script>
+    Reveal.initialize({
+      hash: true,
+      center: false,
+      width: 1280,
+      height: 720,
+      margin: 0,
+      slideNumber: "c/t",
+      plugins: [ RevealMarkdown ],
+    }).then(() => {
+      // 枠 (720px) に収まらないスライドは中身を等倍縮小して全体を表示する (隠さない)
+      const fit = () => {
+        const sec = Reveal.getCurrentSlide();
+        if (!sec) return;
+        let wrap = sec.querySelector(":scope > .fit-wrap");
+        if (!wrap) {
+          wrap = document.createElement("div");
+          wrap.className = "fit-wrap";
+          while (sec.firstChild) wrap.appendChild(sec.firstChild);
+          sec.appendChild(wrap);
+        }
+        wrap.style.transform = "none";
+        wrap.style.width = "100%";
+        const cs = getComputedStyle(sec);
+        const avail = 720 - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+        wrap.style.transformOrigin = "top left";
+        // 縮小時は倍率ぶん wrap を広げて縮小後に全幅へ戻す (縮小だけだと 100% 幅で折り返した行が縮み右側が空く)。幅を変えると折り返しで高さも変わるため二分探索で倍率を確定する
+        const fits = (s) => { wrap.style.width = (100 / s) + "%"; return wrap.scrollHeight * s <= avail + 0.5; };
+        let scale = 1;
+        if (!fits(1)) {
+          // 100% 幅時の縮小率を下限に取る (幅を広げると高さは増えないため必ず収まる保証付き = 収まらないまま探索が終わる床を持たない)
+          let lo = avail / wrap.scrollHeight, hi = 1;
+          for (let i = 0; i < 8; i++) { const mid = (lo + hi) / 2; if (fits(mid)) lo = mid; else hi = mid; }
+          scale = lo;
+          fits(scale);
+        }
+        wrap.style.transform = scale < 1 ? "scale(" + scale + ")" : "none";
+      };
+      fit();
+      Reveal.on("slidechanged", fit);
+      window.addEventListener("resize", fit);
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+{
+  "name": "@diag/mock",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "node --import tsx --test \"test/**/*.test.ts\""
+  },
+  "dependencies": {
+    "@diag/core": "*",
+    "@hono/node-server": "^1.13.7",
+    "hono": "^4.12.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.0"
+  }
+}

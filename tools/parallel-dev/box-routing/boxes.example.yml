@@ -1,0 +1,16 @@
+# dynamic/ に置く Traefik file provider config の雛形。box ごとに 1 router + 1 service。
+# 使い方: このファイルを dynamic/<任意>.yml にコピーし、box 名と publish した host port に書き換える。
+#   sbx ports <box> --publish 18001:3000   # box の web(3000) を host:18001 に出す
+# Traefik は dynamic/ を watch しているので、コピー後の編集も自動反映される。
+http:
+  routers:
+    web-box1:
+      rule: "Host(`web.box1.localhost`)"
+      service: box1
+      entryPoints: [web]
+  services:
+    box1:
+      loadBalancer:
+        servers:
+          # 18001 = 上の sbx ports --publish で割り当てた host port
+          - url: "http://host.docker.internal:18001"

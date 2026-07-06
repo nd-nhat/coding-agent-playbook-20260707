@@ -1,0 +1,93 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "CloudWatchLogsDiscoveryAndQueryResultsInRegion",
+      "Effect": "Allow",
+      "Action": [
+        "logs:DescribeLogGroups",
+        "logs:DescribeQueries",
+        "logs:GetQueryResults",
+        "logs:GetLogRecord"
+      ],
+      "Resource": "*",
+      "Condition": { "StringEquals": { "aws:RequestedRegion": "REGION" } }
+    },
+    {
+      "Sid": "CloudWatchLogsPayloadReadScopedToLogGroup",
+      "Effect": "Allow",
+      "Action": [
+        "logs:DescribeLogStreams",
+        "logs:FilterLogEvents",
+        "logs:GetLogEvents",
+        "logs:StartQuery"
+      ],
+      "Resource": "arn:aws:logs:REGION:ACCOUNT_ID:log-group:LOG_GROUP_NAME:*"
+    },
+    {
+      "Sid": "CloudWatchMetricsAlarmsReadInRegion",
+      "Effect": "Allow",
+      "Action": [
+        "cloudwatch:GetMetricData",
+        "cloudwatch:GetMetricStatistics",
+        "cloudwatch:ListMetrics",
+        "cloudwatch:DescribeAlarms",
+        "cloudwatch:DescribeAlarmHistory"
+      ],
+      "Resource": "*",
+      "Condition": { "StringEquals": { "aws:RequestedRegion": "REGION" } }
+    },
+    {
+      "Sid": "CloudFormationDescribeScopedToStack",
+      "Effect": "Allow",
+      "Action": [
+        "cloudformation:DescribeStacks",
+        "cloudformation:DescribeStackEvents",
+        "cloudformation:DescribeStackResources",
+        "cloudformation:ListStackResources"
+      ],
+      "Resource": "arn:aws:cloudformation:REGION:ACCOUNT_ID:stack/STACK_NAME/*"
+    },
+    {
+      "Sid": "ComputeStateReadInRegion",
+      "Effect": "Allow",
+      "Action": [
+        "ecs:DescribeClusters",
+        "ecs:DescribeServices",
+        "ecs:DescribeTasks",
+        "ecs:ListServices",
+        "ecs:ListTasks",
+        "elasticloadbalancing:DescribeLoadBalancers",
+        "elasticloadbalancing:DescribeTargetGroups",
+        "elasticloadbalancing:DescribeTargetHealth",
+        "elasticloadbalancing:DescribeListeners"
+      ],
+      "Resource": "*",
+      "Condition": { "StringEquals": { "aws:RequestedRegion": "REGION" } }
+    },
+    {
+      "Sid": "CloudFrontListGlobal",
+      "Effect": "Allow",
+      "Action": ["cloudfront:ListDistributions"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "CloudFrontReadDistribution",
+      "Effect": "Allow",
+      "Action": ["cloudfront:GetDistribution", "cloudfront:GetDistributionConfig"],
+      "Resource": "arn:aws:cloudfront::ACCOUNT_ID:distribution/DISTRIBUTION_ID"
+    },
+    {
+      "Sid": "DenyAssumeRoleNoCredentialBroker",
+      "Effect": "Deny",
+      "Action": [
+        "sts:AssumeRole",
+        "sts:AssumeRoleWithWebIdentity",
+        "sts:AssumeRoleWithSAML",
+        "sts:GetFederationToken",
+        "sts:GetSessionToken"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

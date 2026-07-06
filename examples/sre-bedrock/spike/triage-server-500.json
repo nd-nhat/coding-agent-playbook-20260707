@@ -1,0 +1,19 @@
+{
+  "schema_version": "1",
+  "_note": "ADR cloud-unattended-sre.md の sanitized handoff (stage/08-server-500-broken 用)。固定 schema・allowlist・raw log/secret 禁止。観測段(read-only)が生成し、修正 identity(AWS read なし)へ渡す唯一の入力。実値は placeholder。",
+  "incident": {
+    "service": "diag-api",
+    "signature": "server_500_unhandled",
+    "http_status": 500,
+    "failing_path": "/api/diagnose/summary",
+    "evidence": "認証済み GET で query parameter `include` を省略すると 500 internal server error が間欠的に観測される (`?include=raw` 等を付けると 200 で正常応答)。サーバの unhandled error log に TypeError: \"Cannot read properties of undefined (reading 'includes')\" が記録され、ハンドラ内で受け取った optional query を素のまま `.includes(...)` で呼んでいる経路と一致する。`app.onError` がデフォルト経路で 500 に倒している (=`ExternalError` / `TimeoutError` 系ではない)。クライアントによって include を渡すかどうかが分かれるため一部 client のみが踏む。",
+    "first_seen": "PLACEHOLDER_ISO8601",
+    "count_5xx_window": "PLACEHOLDER_INT"
+  },
+  "constraints": {
+    "scope": "最小修正のみ。無関係な refactor をしない。",
+    "no_raw_logs": true,
+    "no_secrets": true,
+    "fixer_inputs": "repo + 本 triage のみ。AWS / network には出ない。"
+  }
+}

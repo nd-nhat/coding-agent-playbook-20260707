@@ -1,0 +1,20 @@
+[project]
+name = "codex-a2a-server"
+version = "0.1.0"
+description = "A2A server wrapping `codex exec` for code review (Stage 1 PoC)"
+requires-python = ">=3.10"
+dependencies = [
+  # 公式 a2a-python SDK (https://github.com/a2aproject/a2a-python)
+  "a2a-sdk~=1.1",
+  "uvicorn[standard]>=0.49.0",
+  "starlette>=1.3.1",
+  # a2a.compat.v0_3 が import するため (a2a-sdk 本体の install_requires に入ってない、helloworld sample 準拠)
+  "sse-starlette>=2.3.5",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["server"]

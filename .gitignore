@@ -1,0 +1,30 @@
+.worktrees/
+.claude/tmp/
+.claude/plans/
+.claude/host-bridge/
+.claude/scheduled_tasks.lock
+.claude/settings.local.json
+
+# App identity broker (案Z) の per-machine 設定 (App ID / private key path)。commit しない
+.claude/app-broker.local.json
+# App private key 等を誤って repo 内に置いても commit されないための保険
+*.pem
+
+# claude session の transcript 等が落ちる作業ディレクトリ (host/box の実行時 runtime)
+.claude/projects/
+
+# macOS Finder が各ディレクトリに撒く metadata
+.DS_Store
+
+# sbx template load 用に docker save が repo ルートへ吐く中間 tar (再生成可能・~1GB)
+/cap-sbx.tar
+
+# scripts/dev.sh route subcommand が box ごとに生成する Traefik file provider 経路 (実行時 runtime)
+/tools/parallel-dev/box-routing/dynamic/*.yml
+
+# uv pip install -e . が生成する editable install のメタデータ (.venv は uv が自己 ignore)
+**/*.egg-info/
+
+# pre-PR sweep skill (comment-sweep 等) の python script を実行すると生成される bytecode cache
+**/__pycache__/
+*.pyc

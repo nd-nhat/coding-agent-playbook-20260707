@@ -1,0 +1,20 @@
+# sbx box の publish 済み host loopback port を Host 名でルーティングする共有プロキシ。
+# 既存の ../proxy.compose.yml (docker provider・host docker の compose stack 用) とは別シナリオ:
+# box 内 dev server は microVM の独自 docker daemon の中で動き host の traefik-public network に
+# 直結できないため、docker provider では拾えない。`sbx ports <box> --publish <hostport>:<boxport>`
+# で host loopback に出した port を、Traefik の file provider (dynamic/) で host.docker.internal
+# 経由ルーティングする。手順は README.md 参照。
+services:
+  traefik:
+    image: traefik:v3.7
+    command:
+      - --providers.file.directory=/dynamic
+      - --providers.file.watch=true
+      - --entryPoints.web.address=:80
+    ports:
+      - "80:80"
+    volumes:
+      - ./dynamic:/dynamic:ro
+    extra_hosts:
+      # box の publish port は host loopback。container から host へ抜けるため host-gateway を解決させる。
+      - "host.docker.internal:host-gateway"
