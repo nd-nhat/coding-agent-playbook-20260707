@@ -1,17 +1,11 @@
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, Cell, ResponsiveContainer } from 'recharts';
 import type { DiagnosisResult } from '@diag/core';
 import { yen, monthLabel } from '../format.ts';
+import { heroVariant } from './heroVariant.ts';
 
 const COLOR_CURRENT = '#94a3b8';
 const COLOR_MARKET = '#22c55e';
 const COLOR_SPIKE = '#ef4444';
-
-// annualDiff が 0 ちょうどの境界では「安い／高い」どちらも事実に反するため、good/bad と並ぶ第三の判定を持たせる。
-const VERDICT = {
-  good: { headline: '安くなる見込み', rateLabel: '実効削減率' },
-  bad: { headline: '高くなる見込み', rateLabel: '実効増加率' },
-  even: { headline: 'ほぼ変わらない見込み', rateLabel: '実効差' },
-} as const;
 
 export function ResultStep({
   diagnosis,
@@ -22,13 +16,9 @@ export function ResultStep({
   loading: boolean;
   onApply: () => void;
 }) {
-  const verdict =
-    diagnosis.annualDiff > 0 ? 'good' : diagnosis.annualDiff < 0 ? 'bad' : 'even';
-  const { headline, rateLabel } = VERDICT[verdict];
-  // even は専用クラスを持たないので base の hero に中立色を inline で当てる（styles.css を増やさない）。
-  const heroClass = verdict === 'even' ? 'hero' : `hero ${verdict}`;
-  const heroStyle =
-    verdict === 'even' ? { background: '#f8fafc', border: '1px solid #e2e8f0' } : undefined;
+  const variant = heroVariant(diagnosis.annualDiff);
+  const cheaper = variant === 'good';
+  const breakEven = variant === 'even';
   const spikes = diagnosis.monthly.filter((m) => m.isSpike).map((m) => monthLabel(m.month));
 
   const data = diagnosis.monthly.map((m) => ({
@@ -40,13 +30,18 @@ export function ResultStep({
 
   return (
     <div className="result">
-      <div className={heroClass} style={heroStyle}>
+      <div className={`hero ${variant}`}>
         <span className="hero-label">市場連動プランなら年間</span>
         <span className="hero-amount">
-          {yen(Math.abs(diagnosis.annualDiff))} {headline}
+          {breakEven
+            ? '差額なしの見込み'
+            : `${yen(Math.abs(diagnosis.annualDiff))} ${cheaper ? '安くなる見込み' : '高くなる見込み'}`}
         </span>
         <span className="hero-sub">
-          {rateLabel} {(Math.abs(diagnosis.annualDiffPct) * 100).toFixed(1)}%（現行 年間 {yen(diagnosis.annualCurrent)}）
+          {breakEven
+            ? '実効差 0.0%'
+            : `実効${cheaper ? '削減' : '増加'}率 ${(Math.abs(diagnosis.annualDiffPct) * 100).toFixed(1)}%`}
+          （現行 年間 {yen(diagnosis.annualCurrent)}）
         </span>
       </div>
 

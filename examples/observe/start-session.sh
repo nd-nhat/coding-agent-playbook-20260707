@@ -3,7 +3,8 @@
 # (mint + box への credential 注入 + AWS endpoint への network allow 追加。runbook.md 旧 step 0 の手動 3 手順の自動化)。
 set -euo pipefail
 
-cd "$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")"
+git_common_dir=$(git rev-parse --path-format=absolute --git-common-dir) || exit
+cd "$(dirname "$git_common_dir")" || exit 1
 
 usage() {
   cat <<'EOF'

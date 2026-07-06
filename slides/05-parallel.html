@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>仕上げ（並列 issue 処理） | Coding Agent Playbook</title>
+  <title>並列開発 | Coding Agent Playbook</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.2.1/dist/reveal.css" integrity="sha384-tK61vs+AeByBmiQ/i6CLgp/PbaaoB/k7M4J5mlX70GVtBPGUk5avjbXhSwhsf3fS" crossorigin="anonymous">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.2.1/dist/theme/white.css" integrity="sha384-flndleNngtsjA21lEvW9JpgOND8agbgm+1EI+KQFbNa0OcOWGydVQbh+G3H2E1dI" crossorigin="anonymous">
   <style>
@@ -40,24 +40,44 @@
       <section data-markdown data-separator="\r?\n---\r?\n">
         <textarea data-template>
 <!-- .slide: class="title-slide" -->
-# 仕上げ（並列 issue 処理）
+# 並列開発
+
+<span class="subtle">`stage/04-mvp`</span>
 
 ---
 
 ## このフェーズでやること
 
-- **自分の MVP から地続き**で進む（追いつくなら `git switch stage/04-mvp`）
 - 改善点を **issue 化 → 並列で潰す**
-- issue は **file が重ならない粒度**で束ねる（並列 conflict 回避）
-- 到達点: issue を捌いて磨いた MVP — 保守フェーズの土台
 
 ---
 
-## 並列のさせ方
+## パターン①: issue ごとに claude を立てる（repo 標準）
 
-- ① box を issue ごとに立てる — **1 box 1 issue**（並列度 = box 数）
-- ② ultracode で 1 session から並列 agent（Claude Code harness 利用時）
-- 注意: stage は default branch でないため `Closes #N` で自動 close されない（手動 close）
+- issue ごとに `bash scripts/dev.sh` で box を起動 — **1 box 1 issue**（並列度 = box 数）
+- box の claude に **issue 番号か URL を貼って「やって」だけ** — worktree・PR 化・後続は開発フロー規約で自走する
+- 各 box が実装 → PR → `/pr-codex-ci` → merge-ready まで独立に回り、**人間は merge 判断だけ**
+
+---
+
+## パターン②: ultracode でまとめて捌く（発展）
+
+- issue 一覧を渡すと **issue ごとに agent が並列に立ち上がる** — ①の「立てて貼る」の繰り返しが 1 コマンドに畳める:
+  - 「#92〜#97 を ultracode で並列にやって」
+- 各 agent は独立 worktree で fix（隔離は harness が自動で満たす）
+
+<span class="subtle">ultracode / Workflow は **Claude Code harness の機能**（repo 同梱ではない）。標準は①</span>
+
+---
+
+## 動作確認（並列で app を見分ける）
+
+- 1 box なら **dev port を publish してそのまま開く**（Traefik 不要）
+- box が並ぶと port 番号の暗記が破綻 → **Traefik（任意）** で名前付き URL に:
+  - `bash scripts/dev.sh route up`（一度）→ `bash scripts/dev.sh route add <box>`
+  - → `web.<branch>.<repo>.localhost` で box ごとにブラウザで開ける
+
+<span class="subtle">:80 に共有 Traefik が居る環境は `route add` が自動検出して相乗り（`up` 不要）。詳細は `docs/guide/parallel.md`</span>
 
 ---
 
@@ -71,6 +91,9 @@
   <script src="https://cdn.jsdelivr.net/npm/reveal.js@5.2.1/dist/reveal.js" integrity="sha384-rZIIVPQD/+U9IL3I62KrBHuVtPgYv+xdXvER5RBiVQRszJEJfLKRrcrZwI7fhcHT" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/reveal.js@5.2.1/plugin/markdown/markdown.js" integrity="sha384-ee/QmFMUwC+YUuswSDzliKj27Anp3rSblE1ujBcPKyrzwG15Daa1GL6JcNbPg/oG" crossorigin="anonymous"></script>
   <script>
+    // mermaid の auto-start (startOnLoad 既定 true) は window load で走り、reveal の slide 非表示化と
+    // race して図が空 viewBox に潰れるため、読み込み直後に無効化する (描画は下の ready 後ブロック)
+    if (window.mermaid) mermaid.initialize({ startOnLoad: false, theme: "neutral", flowchart: { htmlLabels: false } });
     Reveal.initialize({
       hash: true,
       center: false,
@@ -113,8 +136,33 @@
       window.addEventListener("resize", fit);
       // mermaid の <script> を読み込んだデッキだけ図を描画する (レイアウトが変わるので描画後に fit を再計算)
       if (window.mermaid) {
-        mermaid.initialize({ startOnLoad: false, theme: "neutral", flowchart: { htmlLabels: false } });
-        mermaid.run().catch((e) => console.error("mermaid render failed", e)).then(fit);
+        // 非表示 slide 上で描画するとテキスト幅が 0 に測られ空 viewBox (幅 16px) に潰れるため、
+        // offscreen の可視コンテナで描画する。万一潰れた図は source から再描画してヒーリングする
+        const graphs = Array.from(document.querySelectorAll(".mermaid"));
+        graphs.forEach((g) => { g.__mermaidSrc = g.textContent; });
+        const collapsed = (g) => { const svg = g.querySelector("svg"); return !svg || svg.viewBox.baseVal.width < 32; };
+        const renderPass = async (targets) => {
+          const pen = document.createElement("div");
+          pen.style.cssText = "position:absolute;left:-10000px;top:0;width:1280px;visibility:hidden;";
+          document.body.appendChild(pen);
+          const slots = targets.map((g) => { const m = document.createComment("mermaid-slot"); g.parentNode.insertBefore(m, g); pen.appendChild(g); return m; });
+          try { await mermaid.run({ nodes: targets }); }
+          finally { targets.forEach((g, i) => { slots[i].parentNode.insertBefore(g, slots[i]); slots[i].remove(); }); pen.remove(); }
+        };
+        (async () => {
+          try {
+            if (graphs.length) await renderPass(graphs);
+            for (let retry = 0; retry < 3; retry++) {
+              const bad = graphs.filter(collapsed);
+              if (!bad.length) break;
+              await document.fonts.ready;
+              await new Promise((r) => setTimeout(r, 150 * (retry + 1)));
+              bad.forEach((g) => { g.removeAttribute("data-processed"); g.textContent = g.__mermaidSrc; });
+              await renderPass(bad);
+            }
+          } catch (e) { console.error("mermaid render failed", e); }
+          fit();
+        })();
       }
     });
   </script>

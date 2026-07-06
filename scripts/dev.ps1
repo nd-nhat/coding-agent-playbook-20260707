@@ -381,7 +381,7 @@ function Invoke-Prune {
   # Possibly-active dev box name set (-All only, protects lockless active sessions and cold-start transients from destructive delete). Parse sbx ls --json status as SSoT (side-effect free / format-stable via JSON schema).
   # Treat only an explicit "stopped" status as safe to delete; anything else (running / starting / stopping / unknown transient) is maybe-running and protected. This matches scripts/cdp-bridge.sh box_running_or_unknown -- looking only at status == "running" would delete a box mid-transition (sbx/README.md "cold-start transient"). The variable is named runningNames but its meaning is "not stopped = possibly-active".
   # NOTE: sbx exec is NOT a safe idle test (sbx auto-starts stopped boxes on exec, waking prune candidates). Computed before the stale-lease scan because the stale-lease delegation check below also references it.
-  # Fail-closed: any failure (non-zero sbx exit / empty output / ConvertFrom-Json throw / missing sandboxes property) refuses -All instead of degrading to a filter-less run, since silent degrade could delete active boxes. -cnotmatch is used because -notmatch is case-insensitive while box names are case-sensitive (uppercase prefixes like SBX- / CDX- would otherwise be filtered out incorrectly).
+  # Fail-closed: any failure (non-zero sbx exit / empty output / ConvertFrom-Json throw / missing or non-array sandboxes property) refuses -All instead of degrading to a filter-less run, since silent degrade could delete active boxes. -cnotmatch is used because -notmatch is case-insensitive while box names are case-sensitive (uppercase prefixes like SBX- / CDX- would otherwise be filtered out incorrectly).
   $runningNames = @()
   if ($All) {
     $sbxJsonText = (& sbx ls --json 2>$null | Out-String)
@@ -400,9 +400,13 @@ function Invoke-Prune {
       Write-Error ("-All requires 'sbx ls --json' output to be parseable JSON; ConvertFrom-Json failed: " + $_.Exception.Message + ". Aborting to avoid unsafe delete.")
       exit 1
     }
-    # Missing 'sandboxes' property (e.g. error payload {"errors": [...]} or empty object {}) is fail-closed: $null.sandboxes piped to Where-Object yields an empty set unconditionally, silently disabling the running filter.
+    # Missing 'sandboxes' property (e.g. error payload {"errors": [...]} or empty object {}) or a non-array value ({"sandboxes": null} / {"sandboxes": "err"}) is fail-closed: piped to Where-Object it yields an empty or garbage set, silently disabling the running filter (dev.sh gets this for free: jq errors when iterating a non-array). A legitimate empty list [] stays an array and passes.
     if (-not ($sbxParsed.PSObject.Properties.Name -contains 'sandboxes')) {
       Write-Error "-All requires 'sbx ls --json' payload to include a 'sandboxes' field; the property is missing. Aborting to avoid unsafe delete."
+      exit 1
+    }
+    if ($sbxParsed.sandboxes -isnot [array]) {
+      Write-Error "-All requires the 'sandboxes' value in 'sbx ls --json' payload to be a JSON array; got null or a non-array value. Aborting to avoid unsafe delete."
       exit 1
     }
     $runningNames = @($sbxParsed.sandboxes | Where-Object { $_.status -ne 'stopped' -and $_.name -cnotmatch '^(cdx-|sbx-|obs-)' } | ForEach-Object { $_.name })
@@ -583,7 +587,7 @@ function Invoke-Prune {
     $lockPid = 0
     return ($lockPidStr -and [int]::TryParse($lockPidStr, [ref]$lockPid) -and (Get-Process -Id $lockPid -ErrorAction SilentlyContinue))
   }
-  # Re-snapshot the possibly-active set just before destructive delete (TOCTOU mitigation for dev.ps1 shell / sbx exec attaches that woke the box after the initial scan). Returns @{ Ok = bool; Items = string[] }; failure forces fail-closed exit at the call site. Uses -cnotmatch (case-sensitive) to stay aligned with Get-DevBoxNames. Mirrors the entry-time -All fail-closed checks (non-zero sbx exit / empty output / parse failure / missing sandboxes property).
+  # Re-snapshot the possibly-active set just before destructive delete (TOCTOU mitigation for dev.ps1 shell / sbx exec attaches that woke the box after the initial scan). Returns @{ Ok = bool; Items = string[] }; failure forces fail-closed exit at the call site. Uses -cnotmatch (case-sensitive) to stay aligned with Get-DevBoxNames. Mirrors the entry-time -All fail-closed checks (non-zero sbx exit / empty output / parse failure / missing or non-array sandboxes property).
   # Like the entry-time runningNames, treat status != "stopped" as possibly-active (protect transient/unknown from destructive delete, cdp-bridge.sh convention).
   $captureRunningSet = {
     $jsonText = (& sbx ls --json 2>$null | Out-String)
@@ -596,6 +600,7 @@ function Invoke-Prune {
       return @{ Ok = $false; Items = @() }
     }
     if (-not ($parsed.PSObject.Properties.Name -contains 'sandboxes')) { return @{ Ok = $false; Items = @() } }
+    if ($parsed.sandboxes -isnot [array]) { return @{ Ok = $false; Items = @() } }
     $names = @($parsed.sandboxes | Where-Object { $_.status -ne 'stopped' -and $_.name -cnotmatch '^(cdx-|sbx-|obs-)' } | ForEach-Object { $_.name })
     return @{ Ok = $true; Items = $names }
   }
@@ -1546,12 +1551,17 @@ function Start-DevBox {
   exit $runExit
 }
 
-# Pre-dispatch guards: -All is only meaningful for `prune`, -Quiet / -q is only meaningful for `ls`. Without these, `pwsh scripts/dev.ps1 ls -All` / `kill -q` etc bind the script-level switches and silently fall through to the subcommand with no effect and no warning. Reject explicitly so misuse fails fast.
-if ($All -and $Action -ne 'prune') {
+# Pre-dispatch guards: -Yes / -All are only meaningful for `prune`, -Quiet / -q is only meaningful for `ls`. Without these, `pwsh scripts/dev.ps1 kill boxA -Yes` / `ls -All` / `kill -q` etc bind the script-level switches and silently fall through to the subcommand with no effect and no warning. Reject explicitly so misuse fails fast.
+# -cne (not -ne) so the guards agree with the case-sensitive dispatch below: `Prune -Yes` dispatches to default (box launch), not 'prune', so it must be rejected here.
+if ($Yes -and $Action -cne 'prune') {
+  Write-Error "-Yes is only supported for 'prune' (got '$Action')."
+  exit 1
+}
+if ($All -and $Action -cne 'prune') {
   Write-Error "-All is only supported for 'prune' (got '$Action')."
   exit 1
 }
-if ($Quiet -and $Action -ne 'ls') {
+if ($Quiet -and $Action -cne 'ls') {
   Write-Error "-Quiet / -q is only supported for 'ls' (got '$Action')."
   exit 1
 }
@@ -1559,25 +1569,36 @@ if ($Quiet -and $Action -ne 'ls') {
 # subcommand dispatch
 # Reject extra positional args for non-route subcommands. ValueFromRemainingArguments above swallows >2 positional
 # (otherwise PowerShell would reject them itself), so we have to re-assert fail-fast here for everything except route.
-if ($RemainingArgs -and $RemainingArgs.Count -gt 0 -and $Action -ne 'route') {
+# $null check instead of truthiness: a lone empty-string arg (@('')) unwraps to $false and would slip through.
+if ($null -ne $RemainingArgs -and $RemainingArgs.Count -gt 0 -and $Action -cne 'route') {
   Write-Error "'$Action' takes no extra positional arguments (got: $($RemainingArgs -join ' '))"
   exit 1
 }
 
 switch -CaseSensitive ($Action) {
-  '' { Start-DevBox -Name ""; break }
+  '' {
+    # ContainsKey instead of truthiness: an explicit empty-string arg binds $Arg but evaluates falsy, and it must be rejected too.
+    if ($PSBoundParameters.ContainsKey('Arg')) {
+      Write-Error "'' takes no extra positional arguments (got: $Arg)"
+      exit 1
+    }
+    Start-DevBox -Name ""
+    break
+  }
   '-h' { Show-Usage; exit 0 }
   '--help' { Show-Usage; exit 0 }
   'help' { Show-Usage; exit 0 }
   'ls' {
-    if ($Arg) { Write-Error "'ls' takes no positional arguments (use -q / -Quiet for name-only output)"; exit 1 }
+    # ContainsKey instead of truthiness: an explicit empty-string arg binds $Arg but evaluates falsy, and it must be rejected too.
+    if ($PSBoundParameters.ContainsKey('Arg')) { Write-Error "'ls' takes no positional arguments (use -q / -Quiet for name-only output)"; exit 1 }
     Invoke-Ls -Quiet:$Quiet
     break
   }
   'attach' { Invoke-Attach -ArgValue $Arg; break }
   'kill' { Invoke-Kill -ArgValue $Arg; break }
   'prune' {
-    if ($Arg) { Write-Error "'prune' takes no positional arguments (use -Yes / -All for switches)"; exit 1 }
+    # ContainsKey instead of truthiness: an explicit empty-string arg binds $Arg but evaluates falsy, and it must be rejected too.
+    if ($PSBoundParameters.ContainsKey('Arg')) { Write-Error "'prune' takes no positional arguments (use -Yes / -All for switches)"; exit 1 }
     Invoke-Prune -Yes:$Yes -All:$All
     break
   }
@@ -1591,6 +1612,11 @@ switch -CaseSensitive ($Action) {
     if ($Action.StartsWith('-')) {
       Write-Error "unknown flag '$Action'"
       Show-Usage
+      exit 1
+    }
+    # ContainsKey instead of truthiness: an explicit empty-string arg binds $Arg but evaluates falsy, and it must be rejected too.
+    if ($PSBoundParameters.ContainsKey('Arg')) {
+      Write-Error "'$Action' takes no extra positional arguments (got: $Arg)"
       exit 1
     }
     Start-DevBox -Name $Action
