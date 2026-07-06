@@ -13,7 +13,7 @@ $gitCommonDir = git rev-parse --path-format=absolute --git-common-dir
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 Set-Location -LiteralPath (Split-Path -Parent $gitCommonDir)
 
-$stages = @(git for-each-ref --format='%(refname:short)' 'refs/heads/stage/') | Sort-Object
+$stages = @(git for-each-ref --format='%(refname:short)' 'refs/heads/stage/' | Sort-Object)
 if (-not $stages) {
   Write-Error "no local stage/* branches (fetch with: git fetch origin '+refs/heads/stage/*:refs/heads/stage/*')"
   exit 1

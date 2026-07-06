@@ -19,6 +19,25 @@ ok()   { printf '  \033[32mOK\033[0m   %s\n' "$1"; OK=$((OK + 1)); }
 ng()   { printf '  \033[31mNG\033[0m   %s\n      -> %s\n' "$1" "$2"; NG=$((NG + 1)); }
 warn() { printf '  \033[33mWARN\033[0m %s\n      -> %s\n' "$1" "$2"; WARN=$((WARN + 1)); }
 
+# 引数パースは git check / cd より前に行う (--help を repo 外でも使えるようにし、
+# param を先に処理する .ps1 と挙動を揃える)
+QUICK=0
+case "${1:-}" in
+  --quick) QUICK=1 ;;
+  "") ;;
+  -h|--help)
+    cat <<'EOF'
+Usage: bash scripts/check-setup.sh [--quick]
+
+README §1 setup の存在チェック + runtime probe (ephemeral box で gh auth status を実行) を行う。
+
+  --quick   ephemeral box を起こさず存在チェックのみ (~1s。auth が valid かは不明)
+EOF
+    exit 0 ;;
+  *)
+    echo "error: unknown arg '$1' (try --help)" >&2; exit 2 ;;
+esac
+
 # git check は cd より前に行う (cd は git rev-parse に依存するため、git 不在/古いと
 # install/upgrade hint を出さずに exit する経路を塞ぐ)。NG 時は意図された hint を
 # 表示してから early exit。
@@ -50,24 +69,8 @@ else
 fi
 
 # git OK が確定したので cd で project root に移動 (worktree 配下からの呼出も main checkout root を base にする)
-cd "$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")" || exit 1
-
-QUICK=0
-case "${1:-}" in
-  --quick) QUICK=1 ;;
-  "") ;;
-  -h|--help)
-    cat <<'EOF'
-Usage: bash scripts/check-setup.sh [--quick]
-
-README §1 setup の存在チェック + runtime probe (ephemeral box で gh auth status を実行) を行う。
-
-  --quick   ephemeral box を起こさず存在チェックのみ (~1s。auth が valid かは不明)
-EOF
-    exit 0 ;;
-  *)
-    echo "error: unknown arg '$1' (try --help)" >&2; exit 2 ;;
-esac
+git_common_dir=$(git rev-parse --path-format=absolute --git-common-dir) || exit
+cd "$(dirname "$git_common_dir")" || exit 1
 
 # 1. sbx CLI が PATH にあるか + v0.31+ (--clone は v0.31 で導入)
 if command -v sbx >/dev/null 2>&1; then
@@ -141,7 +144,9 @@ if sbx template ls 2>/dev/null | awk 'NR > 1 && ($1 == "docker.io/library/coding
   _df_commit=$(git log --format=%H -n1 -- sbx/Dockerfile 2>/dev/null || true)
   if [ -z "$_img_commit" ]; then
     warn "image template は存在するが staleness スタンプが無い (本機能導入前の古い build)" "bash scripts/build-image.sh で rebuild してください"
-  elif [ -n "$_df_commit" ] && [ "$_img_commit" != "$_df_commit" ]; then
+  elif [ -z "$_df_commit" ]; then
+    warn "sbx/Dockerfile の commit を解決できない (git log が空を返した)" "sbx/Dockerfile が tracked か確認してから再実行してください"
+  elif [ "$_img_commit" != "$_df_commit" ]; then
     warn "image template の sbx/Dockerfile が更新されています (image が古い、${_df_commit:0:7} != ${_img_commit:0:7})" "bash scripts/build-image.sh で rebuild してください"
   else
     ok "image template 'coding-agent-playbook-sbx' loaded (sbx/Dockerfile: ${_df_commit:0:7})"

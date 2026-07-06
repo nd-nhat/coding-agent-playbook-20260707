@@ -89,7 +89,7 @@ fi
 
 # belt-and-suspenders: session_id を positional arg で渡し sh -c string への splice を回避
 # (`sh -c` は login profile skip で box 起動 overhead 削減、`timeout` は sbx exec 応答不能時の hang 防止)
-matched=$("${TIMEOUT_60[@]}" sbx exec "$box" sh -c 'ls /home/agent/.claude/projects/*/"$1"*.jsonl 2>/dev/null || true' _ "$session_id")
+matched=$(${TIMEOUT_60[@]+"${TIMEOUT_60[@]}"} sbx exec "$box" sh -c 'ls /home/agent/.claude/projects/*/"$1"*.jsonl 2>/dev/null || true' _ "$session_id")
 
 if [[ -z "$matched" ]]; then
   echo "transcript not found for session_id='${session_id}' in box='${box}'" >&2
@@ -126,8 +126,8 @@ dest_path="${dest_dir}/box-session-${short}.jsonl"
 # 小さい transcript で sbx cp の ~4MB hang を踏みにくく、踏んだ場合のみ既存の hang を引き継ぐ trade-off)
 abs_dest="${PWD}/${dest_path}"
 abs_dest_dir="${PWD}/${dest_dir}"
-if "${TIMEOUT_60[@]}" sbx exec "$box" sh -c 'test -d "$1" -a -w "$1"' _ "$abs_dest_dir" 2>/dev/null; then
-  "${TIMEOUT_60[@]}" sbx exec "$box" cp "$src_path" "$abs_dest"
+if ${TIMEOUT_60[@]+"${TIMEOUT_60[@]}"} sbx exec "$box" sh -c 'test -d "$1" -a -w "$1"' _ "$abs_dest_dir" 2>/dev/null; then
+  ${TIMEOUT_60[@]+"${TIMEOUT_60[@]}"} sbx exec "$box" cp "$src_path" "$abs_dest"
 else
   echo "box='${box}' does not bind-mount '${abs_dest_dir}' (clone box / cross-OS host path)。sbx cp に fallback (>4MB file は data plane buffer で hang する可能性あり)" >&2
   sbx cp "${box}:${src_path}" "$dest_path"

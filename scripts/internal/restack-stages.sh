@@ -6,7 +6,8 @@
 set -euo pipefail
 
 # --git-common-dir 起点: worktree 内から実行しても main checkout root に解決するため
-cd "$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")"
+git_common_dir=$(git rev-parse --path-format=absolute --git-common-dir) || exit
+cd "$(dirname "$git_common_dir")" || exit 1
 
 stages=$(git for-each-ref --format='%(refname:short)' 'refs/heads/stage/' | sort)
 if [ -z "$stages" ]; then

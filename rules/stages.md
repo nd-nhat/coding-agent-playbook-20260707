@@ -2,7 +2,7 @@
 
 [CLAUDE.md](../CLAUDE.md)「stage ブランチ」から委譲される詳細規範。
 
-`stage/*` は「講義中に『ここまで進んだ状態』を即座に開く」ための教材装置（3分クッキング方式）であり、開発フロー（box → worktree → PR → merge）とは**別軸**。**受講者の default は前フェーズの自分の到達点から地続きに進むこと**で、stage は追いつき・やり直しの**セーブポイント**（例外: 運用保守フェーズは仕込みバグが必要なため stage 起点が必須）。main を base にした **stacked 連鎖**（main → stage/01 → … → 08）で、project（demo アプリ）本体は各 stage の **`app/` 配下**に置く（設計と移行の経緯は [../docs/decisions/stage-stacked-branches.md](../docs/decisions/stage-stacked-branches.md)）。
+`stage/*` は「講義中に『ここまで進んだ状態』を即座に開く」ための教材装置（3分クッキング方式）であり、開発フロー（box → worktree → PR → merge）とは**別軸**。**受講者の default は前フェーズの自分の到達点から地続きに進むこと**で、stage は追いつき・やり直しの**セーブポイント**（例外: 運用保守フェーズは仕込みバグが必要なため stage 起点が必須）。main を base にした **stacked 連鎖**（main → stage/01 → … → 末尾）で、project（demo アプリ）本体は各 stage の **`app/` 配下**に置く（設計と移行の経緯は [../docs/decisions/stage-stacked-branches.md](../docs/decisions/stage-stacked-branches.md)）。
 
 - **checkpoint = `app/` の内容**。基盤（root 側）は main 由来で全 stage 同一のため、stage 間の `git switch` は原則 app/（と stage 側にだけある `.github/workflows/ci.yml`）しか触らない
 - **`app/` は product repo の root 相当**（実開発で単独 repo にしたときの root にあたる）。中の配置は実モノレポ慣行に合わせる: `apps/`（デプロイ単位: web / api / mock）+ `packages/`（共有ライブラリ: core）+ `infra/`（CDK app、独立 workspace）+ `docs/`（design.md 等の横断設計）。**product の設計 docs は `app/docs/` 直下**に置く（repo root の `docs/` は playbook 用で別物。app/ の中では root docs 慣行がそのまま成立する）

@@ -94,7 +94,7 @@ coding-agent-playbook/   # main: 講義進行用 (CLAUDE.md / 解説 / scripts)
   .worktrees/            # 作業用 worktree (git 管理外。stage の並置比較・並列作業で使う)
 ```
 
-stage の連鎖は `stage/01-blank` (壁打ちの起点・app/ 空) → `stage/02-onepager` → … → `stage/08-server-500-broken`。worktree を切った場合も同一の `.git` を共有するため、どこで commit / fetch しても全体に即時反映される。
+stage の連鎖は `stage/01-blank` (壁打ちの起点・app/ 空) → `stage/02-onepager` → … → 末尾 (現在は運用保守シナリオの stage 群まで)。worktree を切った場合も同一の `.git` を共有するため、どこで commit / fetch しても全体に即時反映される。
 
 ---
 
