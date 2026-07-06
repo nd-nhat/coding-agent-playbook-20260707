@@ -3,7 +3,8 @@
 # (--log-group を変えて再実行すれば調査対象を repoint できる)。
 set -euo pipefail
 
-cd "$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")"
+git_common_dir=$(git rev-parse --path-format=absolute --git-common-dir) || exit
+cd "$(dirname "$git_common_dir")" || exit 1
 
 usage() {
   cat <<'EOF'

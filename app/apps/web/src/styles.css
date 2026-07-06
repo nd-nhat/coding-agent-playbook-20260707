@@ -228,6 +228,10 @@ button.link {
   background: #fef2f2;
   border: 1px solid #fecaca;
 }
+.hero.even {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
 .hero-label {
   font-size: 0.85rem;
   color: var(--muted);
@@ -242,6 +246,9 @@ button.link {
 }
 .hero.bad .hero-amount {
   color: var(--bad);
+}
+.hero.even .hero-amount {
+  color: var(--muted);
 }
 .hero-sub {
   font-size: 0.82rem;

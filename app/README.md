@@ -35,7 +35,7 @@ npm run dev
 #   mock: http://localhost:8787
 ```
 
-`123456` を SMS 認証コードに入力するとデモが進む（[docs/design.md §7](docs/design.md)）。
+`123456` を SMS 認証コードに入力するとデモが進む（[docs/design.md §7](docs/design.md#7-外部連携と-mock-サーバappsmock)）。
 
 ### コンテナで動かす（mock + api）
 
@@ -54,28 +54,31 @@ npm run build      # web の本番ビルド（apps/web/dist）
 
 ## 環境変数
 
-api（`apps/api`）が読む実行時設定。ローカル開発はすべて既定のまま動く。本番（`NODE_ENV=production`）では `TOKEN_SECRET` だけは必須で、未設定だと api が起動時に fail-fast する。
+実行時に読む env 変数。**ローカル開発はすべて既定のまま動く**。本番（`NODE_ENV=production`）では `TOKEN_SECRET` だけが必須。未設定でも起動と `/health` は通ってしまい、認証 API だけが全滅する（トークン発行は 500・検証は 401）ので、health check の green を設定済みの根拠にしないこと（CDK deploy では Secrets Manager から自動注入される）。
 
-| 変数 | 既定 | 説明 | 必須/任意 |
-|------|------|------|-----------|
-| `TOKEN_SECRET` | dev 用の固定値 | 署名トークン（HMAC/JWT）の鍵。ローカルでは dev 値に fallback するが、`NODE_ENV=production` では必須（未設定なら起動失敗） | 本番のみ必須 |
-| `SUBJECT_PEPPER` | `TOKEN_SECRET` の値 | 電話番号を HMAC 化する際の pepper。未設定なら `TOKEN_SECRET` を流用 | 任意 |
-| `EXTERNAL_BASE_URL` | `http://localhost:8787`（mock） | 外部連携アダプタの接続先 base URL。本番は実 API に差し替える | 任意 |
-| `EXTERNAL_TIMEOUT_MS` | `8000` | 上流呼び出しのアプリ側 deadline（ミリ秒） | 任意 |
-| `API_PORT` | `8788` | api の listen ポート | 任意 |
-| `NODE_ENV` | （未設定） | `production` で `TOKEN_SECRET` 未設定時の fail-fast を有効化 | 任意 |
+| 変数 | 対象 | 既定 | 必須/任意 | 説明 |
+|------|------|------|-----------|------|
+| `TOKEN_SECRET` | api | dev 用の固定値 | 本番のみ必須 | 署名トークン（JWT）の鍵。ローカルでは dev 値に fallback、`NODE_ENV=production` では未設定なら認証 API がリクエスト時にエラー（発行 500 / 検証 401） |
+| `SUBJECT_PEPPER` | api | `TOKEN_SECRET` の値 | 任意 | 電話番号を HMAC で擬似化する際の pepper。未設定なら署名鍵を流用 |
+| `EXTERNAL_BASE_URL` | api / infra | api: `http://localhost:8787`（mock）/ infra: mock service の internal ALB DNS | 任意 | 外部連携アダプタの接続先 base URL。実 API への切替はこれを差し替えるだけ（[docs/deploy.md §4](docs/deploy.md#4-外部連携先の切替任意)） |
+| `EXTERNAL_TIMEOUT_MS` | api | `8000` | 任意 | 外部呼び出しのアプリ側 deadline（ミリ秒） |
+| `API_PORT` | api | `8788` | 任意 | api の listen ポート |
+| `NODE_ENV` | api | （未設定） | 任意 | `production` で `TOKEN_SECRET` の dev 値への fallback を無効化（未設定なら認証 API がエラーに） |
+| `MOCK_PORT` | mock | `8787` | 任意 | mock の listen ポート |
+| `API_PROXY_TARGET` | web（dev） | `http://localhost:8788` | 任意 | Vite dev server が `/api` を proxy する向き先 |
+| `VITE_DEMO` | web | （未設定 = デモ表示） | 任意 | `false` で SMS 画面の固定コードのヒント表示を隠す（build 時に埋め込み） |
+| `CDK_DEFAULT_ACCOUNT` / `CDK_DEFAULT_REGION` | infra | AWS 認証情報から / `ap-northeast-1` | 任意 | CDK の deploy 先 account / region |
 
 ## デプロイ（AWS / CDK）
 
-[docs/design.md §10](docs/design.md) の構成（S3+CloudFront / ECS Fargate internal ALB / VPC Origin）。
+[docs/design.md §10](docs/design.md#10-aws-構成--デプロイinfracdk) の構成（S3+CloudFront / ECS Fargate internal ALB / VPC Origin）。
+**認証（SSO）・bootstrap・teardown まで含む手順は [docs/deploy.md](docs/deploy.md)**。
 
-**リポジトリルートから**実行する（web ビルド → CDK の順で走り、`apps/web/dist` を S3 に同梱する）:
+クイック実行（先に `apps/web/dist` を build して `BucketDeployment` に渡す）:
 
 ```bash
-npm run synth      # web build → CloudFormation テンプレート生成
-npm run deploy     # web build → deploy（要 AWS 認証情報・CDK bootstrap）
+npm run build --workspace @diag/web   # apps/web/dist を生成
+cd infra && npx aws-cdk deploy        # 要 AWS 認証情報・CDK bootstrap
 ```
-
-> `cd infra` で直接 `cdk` を叩く場合は、先に `npm run build --workspace @diag/web` で `apps/web/dist` を生成しておくこと（CDK の `BucketDeployment` が synth 時にこのパスを参照するため）。
 
 > デモのため SMS・スマートメーター・市場価格・契約・申込はすべて mock。実 API への切替は backend の `EXTERNAL_BASE_URL` を差し替えるだけ（本番境界の seam）。

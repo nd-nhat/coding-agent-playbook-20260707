@@ -328,7 +328,7 @@ function Host-Rollback {
   $idf = Policy-IdFile; $scopef = Policy-ScopeFile
   if (Test-Path $idf) {
     $id = (Get-Content $idf -Raw).Trim()
-    $scope = if (Test-Path $scopef) { (Get-Content $scopef -Raw).Trim() } else { "" }
+    $scope = if ((Test-Path $scopef) -and ((Get-Item $scopef).Length -gt 0)) { (Get-Content $scopef -Raw).Trim() } else { "" }
     # sbx v0.33+ contract: `sbx policy rm network --id <id>` (sandbox-scoped rules also need
     # --sandbox). The previous `sbx policy rm $id` form fails with unknown-command, leaving the
     # allow rule in place and exposing port re-use as a security regression.
@@ -362,7 +362,7 @@ function Host-Up {
   if ($prevIdf -and $prevIdf.Length -gt 0) {
     $prevId = (Get-Content $prevIdf.FullName -Raw).Trim()
     $prevScopef = $prevIdf.FullName -replace '\.id$', '.scope'
-    $prevScope = if (Test-Path $prevScopef) { (Get-Content $prevScopef -Raw).Trim() } else { "(global)" }
+    $prevScope = if ((Test-Path $prevScopef) -and ((Get-Item $prevScopef).Length -gt 0)) { (Get-Content $prevScopef -Raw).Trim() } else { "(global)" }
     Write-Error "Previous up's egress rule ($prevId, scope=$prevScope) is still un-revoked. New up would overwrite the handle and leak the old rule. Run 'pwsh scripts/cdp-bridge.ps1 down' first, or manually 'sbx policy rm network --id $prevId [--sandbox $prevScope]' before re-up."
   }
   # finalize port before mktemp: detecting/avoiding an occupied port first avoids creating a throwaway dir for nothing.
@@ -511,7 +511,7 @@ function Host-Down {
   $idf = Policy-IdFile; $scopef = Policy-ScopeFile
   if (Test-Path $idf) {
     $id = (Get-Content $idf -Raw).Trim()
-    $scope = if (Test-Path $scopef) { (Get-Content $scopef -Raw).Trim() } else { "" }
+    $scope = if ((Test-Path $scopef) -and ((Get-Item $scopef).Length -gt 0)) { (Get-Content $scopef -Raw).Trim() } else { "" }
     # sbx v0.33+ contract: `sbx policy rm network --id <id>` (+ --sandbox for scoped rules).
     if ($scope) {
       sbx policy rm network --sandbox $scope --id $id 2>$null

@@ -12,7 +12,8 @@ if [ $# -lt 1 ] || [ $# -gt 2 ]; then
 fi
 
 # --git-common-dir 起点: worktree 内から実行しても main checkout root に解決するため
-cd "$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")"
+git_common_dir=$(git rev-parse --path-format=absolute --git-common-dir) || exit
+cd "$(dirname "$git_common_dir")" || exit 1
 
 name=${1#stage/}
 case "$name" in

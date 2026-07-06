@@ -3,10 +3,10 @@ name: ci
 on:
   push:
     branches: ["stage/**"]
-    paths: ["app/**"]
+    paths: ["app/**", ".github/workflows/ci.yml"]
   pull_request:
     branches: ["stage/**"]
-    paths: ["app/**"]
+    paths: ["app/**", ".github/workflows/ci.yml"]
   workflow_dispatch:
 
 defaults:

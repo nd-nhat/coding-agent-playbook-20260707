@@ -94,7 +94,7 @@ find_in_location() {
     # belt-and-suspenders: session_id を positional arg で渡し sh -c string への splice を回避。
     # sbx exec 自体の失敗 (box 停止/不在) は exit 6 で明示 (set -e 任せだと sbx の生 exit code が漏れ
     # usage の 6=sbx command failure と不一致になる。.ps1 の $LASTEXITCODE チェックと挙動を揃える)
-    if ! raw=$("${TIMEOUT_60[@]}" sbx exec "$loc" sh -c 'ls /home/agent/.claude/projects/*/"$1"*.jsonl 2>/dev/null || true' _ "$session_id"); then
+    if ! raw=$(${TIMEOUT_60[@]+"${TIMEOUT_60[@]}"} sbx exec "$loc" sh -c 'ls /home/agent/.claude/projects/*/"$1"*.jsonl 2>/dev/null || true' _ "$session_id"); then
       echo "sbx exec failed for box='${loc}'. Box may be stopped or missing." >&2
       exit 6
     fi
@@ -202,7 +202,7 @@ trap cleanup EXIT
 # box が staging dir を同一 path で bind-mount しているか (test -d -a -w)。dev box は true、clone box は false。
 # 非 0 は「未 mount」の正常判定なので run_sbx を通さない (失敗 = fallback であり exit 6 ではない)
 box_has_mount() {
-  "${TIMEOUT_60[@]}" sbx exec "$1" sh -c 'test -d "$1" -a -w "$1"' _ "$stage_abs_dir" 2>/dev/null
+  ${TIMEOUT_60[@]+"${TIMEOUT_60[@]}"} sbx exec "$1" sh -c 'test -d "$1" -a -w "$1"' _ "$stage_abs_dir" 2>/dev/null
 }
 
 # 転送系 sbx 操作の失敗を exit 6 で明示する (set -e 任せだと sbx の生 exit code が漏れ usage の
@@ -210,7 +210,7 @@ box_has_mount() {
 # 「非 0 が正常判定」の呼び出しはここを通さない)
 run_sbx() {
   local what="$1"; shift
-  if ! "${TIMEOUT_60[@]}" sbx "$@"; then
+  if ! ${TIMEOUT_60[@]+"${TIMEOUT_60[@]}"} sbx "$@"; then
     echo "sbx ${what} failed (box stopped/missing or transfer error): sbx $*" >&2
     exit 6
   fi
