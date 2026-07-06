@@ -5,7 +5,8 @@
 set -euo pipefail
 
 # --git-common-dir 起点: stage worktree 内から実行しても main checkout root に解決するため
-cd "$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")"
+git_common_dir=$(git rev-parse --path-format=absolute --git-common-dir) || exit
+cd "$(dirname "$git_common_dir")" || exit 1
 
 # 手動削除された worktree の stale 登録を掃除し、再作成を可能にする
 git worktree prune

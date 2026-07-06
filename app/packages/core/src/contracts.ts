@@ -76,6 +76,9 @@ export const zApplicationResponse = z.object({
   applicationId: z.string(),
 });
 
+// 外部 SMS verify レスポンス
+export const zExternalSmsVerifyResponse = z.object({ verified: z.boolean() });
+
 // 外部（協会 mock）consent レスポンス。consentId が非空であることを検証する
 export const zExternalConsentResponse = z.object({
   consentId: z.string().min(1),

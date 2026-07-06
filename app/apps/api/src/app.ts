@@ -3,6 +3,7 @@
 
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import { HTTPException } from 'hono/http-exception';
 import { zValidator } from '@hono/zod-validator';
 import {
   diagnose,
@@ -12,11 +13,38 @@ import {
   zSmsVerifyRequest,
   zApplicationRequest,
 } from '@diag/core';
-import { external } from './external.ts';
+import { external, ExternalError } from './external.ts';
 import { issueToken, authMiddleware, consentMiddleware, hashSubject } from './auth.ts';
+import { log } from './log.ts';
 
 const app = new Hono();
 app.use('*', cors());
+// リクエスト単位の構造化アクセスログ（onError 適用後の最終 status を記録）
+app.use('*', async (c, next) => {
+  const start = Date.now();
+  await next();
+  log(c.res.status >= 500 ? 'error' : 'info', 'request', {
+    method: c.req.method,
+    path: c.req.path,
+    status: c.res.status,
+    durationMs: Date.now() - start,
+  });
+});
+app.notFound((c) => c.json({ error: 'not found' as const }, 404));
+// 未捕捉例外を種別分けする: 上流 timeout=504 / 上流エラー=502 / 自コード=500
+app.onError((err, c) => {
+  if (err instanceof HTTPException) return err.getResponse();
+  const failure = err instanceof ExternalError ? err.kind : 'internal';
+  log('error', 'unhandled_error', {
+    method: c.req.method,
+    path: c.req.path,
+    failure,
+    message: err.message,
+  });
+  if (failure === 'timeout') return c.json({ error: 'upstream timeout' as const }, 504);
+  if (failure === 'upstream') return c.json({ error: 'upstream error' as const }, 502);
+  return c.json({ error: 'internal server error' as const }, 500);
+});
 app.get('/health', (c) => c.json({ ok: true }));
 
 const routes = app

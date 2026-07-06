@@ -43,8 +43,6 @@ flowchart TB
 
 データの流れ: ブラウザ → CloudFront → backend API（診断計算）→ 外部連携アダプタ → mock サーバ（or 実 API）。frontend 自身は計算を持たず API を叩くだけ。
 
-データの流れ: ブラウザ → CloudFront → backend API（診断計算）→ 外部連携アダプタ → mock サーバ（or 実 API）。frontend 自身は計算を持たず API を叩くだけ。
-
 ## 3. 技術スタック（2026-06 時点で最新安定版を WebSearch 検証）
 
 | 層 | 採用 | 備考 |

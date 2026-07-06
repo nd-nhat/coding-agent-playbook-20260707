@@ -10,7 +10,8 @@ EXAMPLE_DIR=tools/a2a-review
 
 # main checkout root から実行 (box / worktree のどこから呼んでも解決。box は main root を direct mount する想定で
 # .worktrees/<NN>/ も box から見える)
-cd "$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")"
+git_common_dir=$(git rev-parse --path-format=absolute --git-common-dir) || exit
+cd "$(dirname "$git_common_dir")" || exit 1
 
 cdx_box_of() { printf '%s-%s' "$CDX_BOX_PREFIX" "$1"; }
 lease_path_of() { printf '.claude/tmp/cdx-serve-%s.lease' "$1"; }

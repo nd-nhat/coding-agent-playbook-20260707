@@ -86,7 +86,8 @@ _kimi_preflight() {
 # name = web.<branch>.<repo>) が壊れる)。route 以外の subcommand では未使用。
 __DEV_CALLER_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)
 
-cd "$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")"
+git_common_dir=$(git rev-parse --path-format=absolute --git-common-dir) || exit
+cd "$(dirname "$git_common_dir")" || exit 1
 
 usage() {
   cat >&2 <<EOF
@@ -527,11 +528,12 @@ cmd_prune() {
 
   echo "prune candidates ($total):"
   local item
-  for item in "${orphan_cdx[@]}"; do echo "  $item  (orphan cdx pair: dev box not found, no active dev lock)"; done
-  for item in "${stale_leases[@]}"; do echo "  $item  (stale lease: pid dead — pair-teardown will revoke sbx policy + cleanup)"; done
-  for item in "${stale_locks[@]}"; do echo "  $item  (stale lock: pid dead)"; done
-  for item in "${unpaired_dev[@]}"; do echo "  $item  (unpaired dev box: CDX=none, no active dev lock — --all mode)"; done
-  for item in "${leaked_paired_dev[@]}"; do echo "  $item  (leaked paired dev box: dev session dead but cdx pair still present — --all mode)"; done
+  # bash 3.2 + set -u では空 array の bare "${arr[@]}" 展開が unbound variable fatal になる (bash 4.4 で修正) ため、全 value 展開ループを count-form でガードする
+  [ "${#orphan_cdx[@]}" -gt 0 ] && for item in "${orphan_cdx[@]}"; do echo "  $item  (orphan cdx pair: dev box not found, no active dev lock)"; done
+  [ "${#stale_leases[@]}" -gt 0 ] && for item in "${stale_leases[@]}"; do echo "  $item  (stale lease: pid dead — pair-teardown will revoke sbx policy + cleanup)"; done
+  [ "${#stale_locks[@]}" -gt 0 ] && for item in "${stale_locks[@]}"; do echo "  $item  (stale lock: pid dead)"; done
+  [ "${#unpaired_dev[@]}" -gt 0 ] && for item in "${unpaired_dev[@]}"; do echo "  $item  (unpaired dev box: CDX=none, no active dev lock — --all mode)"; done
+  [ "${#leaked_paired_dev[@]}" -gt 0 ] && for item in "${leaked_paired_dev[@]}"; do echo "  $item  (leaked paired dev box: dev session dead but cdx pair still present — --all mode)"; done
 
   if [ "${#running_skipped[@]}" -gt 0 ]; then
     echo
@@ -582,7 +584,7 @@ cmd_prune() {
     fi
   }
   # orphan cdx pair: 直前 lock 再 check → pair-teardown (a2a-review.sh の R7 修正後 semantics: 成功 = lease + cdx + policy 全部 OK / 失敗 = lease 保持 + 何か残ってる)。失敗時のみ fallback sbx rm を試行。
-  for item in "${orphan_cdx[@]}"; do
+  [ "${#orphan_cdx[@]}" -gt 0 ] && for item in "${orphan_cdx[@]}"; do
     cdx_name="${item#cdx-}"
     if is_dev_lock_alive "$cdx_name"; then
       echo "  skipped $item (active dev lock acquired since scan)"
@@ -657,7 +659,7 @@ cmd_prune() {
     fi
   done
   # stale lock: delete 直前に再 read + pid 再 check (scan 後に dev.sh が同名 lock を re-acquire した window を防ぐ)
-  for lock_path in "${stale_locks[@]}"; do
+  [ "${#stale_locks[@]}" -gt 0 ] && for lock_path in "${stale_locks[@]}"; do
     if [ -f "$lock_path" ]; then
       revalidate_pid=$(cat "$lock_path" 2>/dev/null || true)
       if [ -n "$revalidate_pid" ] && kill -0 "$revalidate_pid" 2>/dev/null; then
@@ -669,7 +671,7 @@ cmd_prune() {
   done
   # unpaired dev box (--all 時のみ): cdx pair も lease も持たない box 本体を sbx rm で削除。各 iter で直前 lock 再 check + 直前 running 再 snapshot (per-item) — loop 直前 1 回 snapshot だと「snapshot 取得 → 最後の sbx rm」までの window で dev.sh shell / sbx exec attach され box が running 化すると残りの iter で誤削除しうる。per-item snapshot で window を「single iter snapshot → sbx rm」まで縮小する (既存 is_dev_lock_alive の per-item pattern と対称)。pair-teardown 不要 (cdx-<NAME> 不在前提)。
   local item_running
-  for item in "${unpaired_dev[@]}"; do
+  [ "${#unpaired_dev[@]}" -gt 0 ] && for item in "${unpaired_dev[@]}"; do
     if is_dev_lock_alive "$item"; then
       echo "  skipped $item (active dev lock acquired since scan)"
       continue
@@ -691,7 +693,7 @@ cmd_prune() {
     fi
   done
   # leaked paired dev box (--all のみ): dev box 本体を sbx rm → 成功時のみ pair-teardown (cmd_kill と同順。逆順だと sbx rm fail 時に reviewer pair が既に teardown 済で実態と乖離する)。pair-teardown が lease + cdx + policy を idempotent に掃除する。各 iter で直前 lock 再 check + running 再 snapshot (unpaired_dev と対称の TOCTOU mitigation)。
-  for item in "${leaked_paired_dev[@]}"; do
+  [ "${#leaked_paired_dev[@]}" -gt 0 ] && for item in "${leaked_paired_dev[@]}"; do
     if is_dev_lock_alive "$item"; then
       echo "  skipped $item (active dev lock acquired since scan)"
       continue
@@ -1448,6 +1450,16 @@ start_box() {
   fi
 }
 
+# 単一 positional な subcommand の余分引数を fail-fast で reject (dev.ps1 の pre-dispatch guard と挙動を揃える)。
+_reject_extra_args() {
+  if [ "$#" -gt 2 ]; then
+    local sub="$1"
+    shift 2
+    echo "error: '$sub' takes no extra positional arguments (got: $*)" >&2
+    exit 1
+  fi
+}
+
 # subcommand dispatch
 case "${1:-}" in
   -h|--help|help)
@@ -1456,21 +1468,26 @@ case "${1:-}" in
     shift
     cmd_ls "$@" ;;
   attach)
+    _reject_extra_args "$@"
     shift
     cmd_attach "${1:-}" ;;
   kill|rm|stop)
+    _reject_extra_args "$@"
     shift
     cmd_kill "${1:-}" ;;
   prune)
     shift
     cmd_prune "$@" ;;
   sandbox)
+    _reject_extra_args "$@"
     shift
     cmd_sandbox "${1:-}" ;;
   observe)
+    _reject_extra_args "$@"
     shift
     cmd_observe "${1:-}" ;;
   shell)
+    _reject_extra_args "$@"
     shift
     cmd_shell "${1:-}" ;;
   route)
@@ -1480,7 +1497,15 @@ case "${1:-}" in
     echo "error: unknown flag '$1'" >&2
     usage; exit 1 ;;
   "")
+    if [ "$#" -gt 1 ]; then
+      echo "error: '' takes no extra positional arguments (got: ${*:2})" >&2
+      exit 1
+    fi
     start_box "" ;;
   *)
+    if [ "$#" -gt 1 ]; then
+      echo "error: '$1' takes no extra positional arguments (got: ${*:2})" >&2
+      exit 1
+    fi
     start_box "$1" ;;
 esac

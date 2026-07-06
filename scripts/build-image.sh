@@ -2,7 +2,8 @@
 # claude / codex を最新版に更新する (image rebuild + sbx template 再 load)。
 set -euo pipefail
 
-cd "$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")"
+git_common_dir=$(git rev-parse --path-format=absolute --git-common-dir) || exit
+cd "$(dirname "$git_common_dir")" || exit 1
 
 # host 専用 (box の中には sbx CLI が無く、これは host で動かす意味しかない)
 if ! command -v sbx >/dev/null 2>&1; then

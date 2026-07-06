@@ -25,6 +25,34 @@ const SPIKE_MONTHS = new Set(['2026-01', '2026-02']);
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
+/** 窓が連続12ヶ月・高騰月が窓内であることを検証する（窓更新時に isSpike が dead code 化するのを防ぐ） */
+export function assertWindowConsistency(
+  window: ReadonlyArray<{ y: number; m: number }>,
+  spikeMonths: ReadonlySet<string>,
+): void {
+  if (window.length !== 12) {
+    throw new Error(`WINDOW must have 12 months, got ${window.length}`);
+  }
+  for (let i = 1; i < window.length; i++) {
+    const prev = window[i - 1]!;
+    const cur = window[i]!;
+    const next = prev.m === 12 ? { y: prev.y + 1, m: 1 } : { y: prev.y, m: prev.m + 1 };
+    if (cur.y !== next.y || cur.m !== next.m) {
+      throw new Error(
+        `WINDOW must be consecutive months: expected ${next.y}-${pad(next.m)} after ${prev.y}-${pad(prev.m)}, got ${cur.y}-${pad(cur.m)}`,
+      );
+    }
+  }
+  const windowKeys = new Set(window.map(({ y, m }) => `${y}-${pad(m)}`));
+  for (const spike of spikeMonths) {
+    if (!windowKeys.has(spike)) {
+      throw new Error(`SPIKE_MONTHS must be within WINDOW: ${spike} is outside`);
+    }
+  }
+}
+
+assertWindowConsistency(WINDOW, SPIKE_MONTHS);
+
 function daysInMonth(y: number, m: number): number {
   return new Date(y, m, 0).getDate(); // m は 1-12、day=0 で前月末 → 当月日数
 }
