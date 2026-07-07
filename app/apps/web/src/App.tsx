@@ -151,6 +151,20 @@ export function App() {
     }
   }, [state.token, onError]);
 
+  // result: 詳細サマリ取得（include を渡さず /api/diagnose/summary を叩く）
+  const showSummary = useCallback(async () => {
+    if (!state.token) return;
+    dispatch({ type: 'loading', loading: true });
+    try {
+      const res = await client.api.diagnose.summary.$get({}, auth(state.token));
+      if (!res.ok) throw new Error(`サマリの取得に失敗しました (HTTP ${res.status})`);
+      await res.json();
+      dispatch({ type: 'loading', loading: false });
+    } catch (e) {
+      onError(e);
+    }
+  }, [state.token, onError]);
+
   // application -> done
   const submitApplication = useCallback(
     async (form: ContractInfo & { email: string }) => {
@@ -194,7 +208,7 @@ export function App() {
           />
         )}
         {state.step === 'result' && state.diagnosis && (
-          <ResultStep diagnosis={state.diagnosis} loading={state.loading} onApply={toApplication} />
+          <ResultStep diagnosis={state.diagnosis} loading={state.loading} onApply={toApplication} onShowSummary={showSummary} />
         )}
         {state.step === 'application' && state.contract && (
           <ApplicationStep contract={state.contract} loading={state.loading} onSubmit={submitApplication} />

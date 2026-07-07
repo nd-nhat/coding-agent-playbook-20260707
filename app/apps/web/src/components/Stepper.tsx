@@ -22,16 +22,16 @@ export function Stepper({ current }: { current: Step }) {
   const cur = collapse(current);
   const curIdx = STEPS.findIndex((s) => s.key === cur);
   return (
-    <ol className="stepper">
-      {STEPS.map((s, i) => {
-        const status = i < curIdx ? 'done' : i === curIdx ? 'active' : 'todo';
-        return (
-          <li key={s.key} className={`stepper-item ${status}`}>
-            <span className="stepper-dot">{i + 1}</span>
-            <span className="stepper-label">{s.label}</span>
-          </li>
-        );
-      })}
-    </ol>
+    <div className="rail-wrap">
+      <ol className="rail" aria-label={`ステップ ${curIdx + 1} / ${STEPS.length}: ${STEPS[curIdx]?.label}`}>
+        {STEPS.map((s, i) => {
+          const status = i < curIdx ? 'complete' : i === curIdx ? 'current' : 'upcoming';
+          return <li key={s.key} className={status} />;
+        })}
+      </ol>
+      <p className="rail-cap" aria-hidden="true">
+        STEP {curIdx + 1} / {STEPS.length} · {STEPS[curIdx]?.label}
+      </p>
+    </div>
   );
 }
